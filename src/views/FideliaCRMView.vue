@@ -58,6 +58,7 @@ import { computed, ref } from 'vue'
 import ArticulosPagina from '../components/paginas/ArticulosPagina.vue'
 import FamiliasPagina from '../components/paginas/FamiliasPagina.vue'
 import InicioPagina from '../components/paginas/InicioPagina.vue'
+import RolesUsuariosPagina from '../components/paginas/RolesUsuariosPagina.vue'
 import TiposFamiliaPagina from '../components/paginas/TiposFamiliaPagina.vue'
 import UsuariosPagina from '../components/paginas/UsuariosPagina.vue'
 
@@ -79,10 +80,17 @@ const paginas = [
     componente: InicioPagina,
   },
   {
+    id: 'roles-usuarios',
+    nombre: 'Roles',
+    descripcion: 'Perfiles de acceso',
+    ayuda: 'Alta de roles para poder asignarlos después a los usuarios del sistema.',
+    componente: RolesUsuariosPagina,
+  },
+  {
     id: 'usuarios',
     nombre: 'Usuarios',
     descripcion: 'Alta segura',
-    ayuda: 'Creacion de usuarios con password hasheada mediante bcrypt con 12 rondas.',
+    ayuda: 'Creacion de usuarios con password hasheada mediante bcrypt con 12 rondas y asignacion de rol.',
     componente: UsuariosPagina,
   },
   {

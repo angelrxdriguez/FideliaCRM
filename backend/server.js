@@ -5,7 +5,7 @@ import { configuracionConexion, pool } from './db/conexion.js'
 
 const app = express()
 const puerto = Number(process.env.PUERTO_API || 3101)
-const tablasEsperadas = ['articulos', 'familias', 'tipo_familia', 'usuarios']
+const tablasEsperadas = ['articulos', 'familias', 'tipo_familia', 'roles_usuarios', 'usuarios']
 
 app.use(cors())
 app.use(express.json())
@@ -165,8 +165,8 @@ app.get('/api/inicio', async (_req, res) => {
       ),
       pool.query(
         `
-          SELECT id, nombre_completo, correo
-          FROM usuarios
+        SELECT id, nombre_completo, correo
+        FROM usuarios
           ORDER BY id DESC
           LIMIT 6
         `
@@ -198,9 +198,15 @@ app.get('/api/usuarios', async (_req, res) => {
   try {
     const [usuarios] = await pool.query(
       `
-        SELECT id, nombre_completo, correo
-        FROM usuarios
-        ORDER BY id DESC
+        SELECT
+          u.id,
+          u.rol_id,
+          u.nombre_completo,
+          u.correo,
+          r.nombre AS rol
+        FROM usuarios u
+        LEFT JOIN roles_usuarios r ON r.id = u.rol_id
+        ORDER BY u.id DESC
       `
     )
 
@@ -214,7 +220,7 @@ app.get('/api/usuarios', async (_req, res) => {
 })
 
 app.post('/api/usuarios', async (req, res) => {
-  const { nombre_completo, correo, password } = req.body
+  const { rol_id, nombre_completo, correo, password } = req.body
 
   if (!nombre_completo || !correo || !password) {
     return res.status(400).json({
@@ -224,27 +230,122 @@ app.post('/api/usuarios', async (req, res) => {
   }
 
   try {
+    if (rol_id) {
+      const [roles] = await pool.query(
+        `
+          SELECT id, nombre
+          FROM roles_usuarios
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [Number(rol_id)]
+      )
+
+      if (roles.length === 0) {
+        return res.status(404).json({
+          ok: false,
+          mensaje: 'El rol indicado no existe.',
+        })
+      }
+    }
+
     const passwordHash = await bcrypt.hash(password, 12)
 
     const [resultado] = await pool.query(
       `
-        INSERT INTO usuarios (nombre_completo, correo, password)
-        VALUES (?, ?, ?)
+        INSERT INTO usuarios (rol_id, nombre_completo, correo, password)
+        VALUES (?, ?, ?, ?)
       `,
-      [nombre_completo.trim(), correo.trim().toLowerCase(), passwordHash]
+      [rol_id ? Number(rol_id) : null, nombre_completo.trim(), correo.trim().toLowerCase(), passwordHash]
     )
+
+    let rol = null
+
+    if (rol_id) {
+      const [roles] = await pool.query(
+        `
+          SELECT nombre
+          FROM roles_usuarios
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [Number(rol_id)]
+      )
+
+      rol = roles[0]?.nombre || null
+    }
 
     res.status(201).json({
       ok: true,
       mensaje: 'Usuario creado correctamente.',
       usuario: {
         id: resultado.insertId,
+        rol_id: rol_id ? Number(rol_id) : null,
+        rol,
         nombre_completo: nombre_completo.trim(),
         correo: correo.trim().toLowerCase(),
       },
     })
   } catch (error) {
     enviarError(res, error, 'No se pudo crear el usuario.')
+  }
+})
+
+app.get('/api/roles-usuarios', async (_req, res) => {
+  try {
+    const [roles] = await pool.query(
+      `
+        SELECT
+          r.id,
+          r.nombre,
+          r.descripcion,
+          COUNT(u.id) AS total_usuarios
+        FROM roles_usuarios r
+        LEFT JOIN usuarios u ON u.rol_id = r.id
+        GROUP BY r.id, r.nombre, r.descripcion
+        ORDER BY r.nombre ASC
+      `
+    )
+
+    res.json({
+      ok: true,
+      roles,
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudieron obtener los roles de usuario.')
+  }
+})
+
+app.post('/api/roles-usuarios', async (req, res) => {
+  const { nombre, descripcion } = req.body
+
+  if (!nombre) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El nombre del rol es obligatorio.',
+    })
+  }
+
+  try {
+    const [resultado] = await pool.query(
+      `
+        INSERT INTO roles_usuarios (nombre, descripcion)
+        VALUES (?, ?)
+      `,
+      [nombre.trim(), descripcion?.trim() || null]
+    )
+
+    res.status(201).json({
+      ok: true,
+      mensaje: 'Rol creado correctamente.',
+      rol: {
+        id: resultado.insertId,
+        nombre: nombre.trim(),
+        descripcion: descripcion?.trim() || null,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo crear el rol de usuario.')
   }
 })
 

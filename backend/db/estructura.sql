@@ -40,9 +40,22 @@ CREATE TABLE articulos (
         ON DELETE RESTRICT
 );
 
+CREATE TABLE roles_usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    descripcion VARCHAR(255) NULL,
+    activo TINYINT(1) DEFAULT 1
+);
+
 CREATE TABLE usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    rol_id INT NULL,
     correo VARCHAR(150) NOT NULL UNIQUE,
     nombre_completo VARCHAR(150) NOT NULL,
-    password VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL,
+    INDEX idx_usuarios_rol (rol_id),
+    CONSTRAINT fk_usuarios_roles
+        FOREIGN KEY (rol_id) REFERENCES roles_usuarios(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
 );

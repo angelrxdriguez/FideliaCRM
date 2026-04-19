@@ -4,40 +4,25 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Crear usuario</h3>
-            <p class="texto-ayuda">La password se guarda hasheada con bcrypt en 12 rondas.</p>
+            <h3>Crear rol</h3>
+            <p class="texto-ayuda">Define los perfiles que luego se podrán asignar a cada usuario.</p>
           </div>
         </div>
 
-        <form class="formulario" @submit.prevent="guardarUsuario">
+        <form class="formulario" @submit.prevent="guardarRol">
           <label>
-            Rol
-            <select v-model="formulario.rol_id">
-              <option value="">Sin rol</option>
-              <option v-for="rol in roles" :key="rol.id" :value="String(rol.id)">
-                {{ rol.nombre }}
-              </option>
-            </select>
+            Nombre
+            <input v-model.trim="formulario.nombre" type="text" required />
           </label>
 
           <label>
-            Nombre completo
-            <input v-model.trim="formulario.nombre_completo" type="text" required />
-          </label>
-
-          <label>
-            Correo
-            <input v-model.trim="formulario.correo" type="email" required />
-          </label>
-
-          <label>
-            Password
-            <input v-model="formulario.password" type="password" minlength="6" required />
+            Descripcion
+            <textarea v-model.trim="formulario.descripcion" rows="4"></textarea>
           </label>
 
           <div class="acciones-formulario">
             <button type="submit" class="boton-principal" :disabled="guardando">
-              {{ guardando ? 'Guardando...' : 'Crear usuario' }}
+              {{ guardando ? 'Guardando...' : 'Crear rol' }}
             </button>
             <button type="button" class="boton-secundario" @click="reiniciarFormulario">
               Limpiar
@@ -49,10 +34,10 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Usuarios registrados</h3>
-            <p class="texto-ayuda">Listado recuperado desde MySQL sin exponer hashes.</p>
+            <h3>Roles disponibles</h3>
+            <p class="texto-ayuda">Cada rol muestra cuántos usuarios lo tienen asignado.</p>
           </div>
-          <span class="contador-panel">{{ usuarios.length }}</span>
+          <span class="contador-panel">{{ roles.length }}</span>
         </div>
 
         <article v-if="alertaSuccess" class="alerta alerta-success">
@@ -63,27 +48,20 @@
           {{ alertaDanger }}
         </article>
 
-        <div v-if="cargando" class="estado-carga">Cargando usuarios...</div>
+        <div v-if="cargando" class="estado-carga">Cargando roles...</div>
 
-        <table v-else>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Correo</th>
-              <th>Rol</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="usuario in usuarios" :key="usuario.id">
-              <td>{{ usuario.nombre_completo }}</td>
-              <td>{{ usuario.correo }}</td>
-              <td>{{ usuario.rol || 'Sin rol' }}</td>
-            </tr>
-            <tr v-if="usuarios.length === 0">
-              <td colspan="3" class="sin-resultados">No hay usuarios cargados.</td>
-            </tr>
-          </tbody>
-        </table>
+        <ul v-else class="lista-roles">
+          <li v-for="rol in roles" :key="rol.id">
+            <div>
+              <strong>{{ rol.nombre }}</strong>
+              <p>{{ rol.descripcion || 'Sin descripcion' }}</p>
+            </div>
+            <span class="badge-total">{{ rol.total_usuarios }}</span>
+          </li>
+          <li v-if="roles.length === 0" class="sin-resultados">
+            No hay roles creados.
+          </li>
+        </ul>
       </article>
     </section>
   </div>
@@ -97,14 +75,11 @@ const cargando = ref(false)
 const guardando = ref(false)
 const alertaSuccess = ref('')
 const alertaDanger = ref('')
-const usuarios = ref([])
 const roles = ref([])
 
 const formulario = reactive({
-  rol_id: '',
-  nombre_completo: '',
-  correo: '',
-  password: '',
+  nombre: '',
+  descripcion: '',
 })
 
 function limpiarAlertas() {
@@ -113,18 +88,16 @@ function limpiarAlertas() {
 }
 
 function reiniciarFormulario() {
-  formulario.rol_id = ''
-  formulario.nombre_completo = ''
-  formulario.correo = ''
-  formulario.password = ''
+  formulario.nombre = ''
+  formulario.descripcion = ''
 }
 
-async function cargarUsuarios() {
+async function cargarRoles() {
   cargando.value = true
 
   try {
-    const payload = await obtener('/api/usuarios', 'No se pudieron cargar los usuarios.')
-    usuarios.value = payload.usuarios
+    const payload = await obtener('/api/roles-usuarios', 'No se pudieron cargar los roles.')
+    roles.value = payload.roles
   } catch (error) {
     alertaDanger.value = error.message
   } finally {
@@ -132,31 +105,15 @@ async function cargarUsuarios() {
   }
 }
 
-async function cargarRoles() {
-  try {
-    const payload = await obtener('/api/roles-usuarios', 'No se pudieron cargar los roles.')
-    roles.value = payload.roles
-  } catch (error) {
-    alertaDanger.value = error.message
-  }
-}
-
-async function guardarUsuario() {
+async function guardarRol() {
   guardando.value = true
   limpiarAlertas()
 
   try {
-    await enviar(
-      '/api/usuarios',
-      {
-        ...formulario,
-        rol_id: formulario.rol_id ? Number(formulario.rol_id) : null,
-      },
-      'No se pudo crear el usuario.'
-    )
-    alertaSuccess.value = 'Usuario creado correctamente con password hasheada.'
+    await enviar('/api/roles-usuarios', { ...formulario }, 'No se pudo crear el rol.')
+    alertaSuccess.value = 'Rol creado correctamente.'
     reiniciarFormulario()
-    await Promise.all([cargarUsuarios(), cargarRoles()])
+    await cargarRoles()
   } catch (error) {
     alertaDanger.value = error.message
   } finally {
@@ -165,7 +122,7 @@ async function guardarUsuario() {
 }
 
 onMounted(() => {
-  Promise.all([cargarUsuarios(), cargarRoles()])
+  cargarRoles()
 })
 </script>
 
@@ -205,7 +162,8 @@ onMounted(() => {
   color: #4d626a;
 }
 
-.contador-panel {
+.contador-panel,
+.badge-total {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -229,7 +187,7 @@ onMounted(() => {
 }
 
 input,
-select {
+textarea {
   width: 100%;
   border: 1px solid #c7d8de;
   border-radius: 0.55rem;
@@ -302,38 +260,41 @@ select {
   color: #8f2623;
 }
 
+.lista-roles {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.lista-roles li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #e2ecef;
+}
+
+.lista-roles li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.lista-roles p {
+  margin: 0.25rem 0 0;
+  color: #607077;
+}
+
 .estado-carga,
 .sin-resultados {
   color: #607077;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  padding: 0.8rem 0.65rem;
-  text-align: left;
-  border-bottom: 1px solid #e2ecef;
-}
-
-thead th {
-  color: #114b5f;
-  font-size: 0.86rem;
-}
-
 @media (max-width: 980px) {
   .rejilla-modulo {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  table {
-    display: block;
-    overflow-x: auto;
   }
 }
 </style>
