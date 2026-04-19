@@ -4,22 +4,12 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Crear familia</h3>
-            <p class="texto-ayuda">Las familias organizan el catalogo y sirven para seccionar articulos.</p>
+            <h3>Crear tipo de familia</h3>
+            <p class="texto-ayuda">Define las clasificaciones base que luego se asignan al crear cada familia.</p>
           </div>
         </div>
 
-        <form class="formulario" @submit.prevent="guardarFamilia">
-          <label>
-            Tipo de familia
-            <select v-model="formulario.id_tipo" required>
-              <option value="">Selecciona un tipo</option>
-              <option v-for="tipo in tiposFamilia" :key="tipo.id" :value="String(tipo.id)">
-                {{ tipo.nombre }}
-              </option>
-            </select>
-          </label>
-
+        <form class="formulario" @submit.prevent="guardarTipoFamilia">
           <label>
             Nombre
             <input v-model.trim="formulario.nombre" type="text" required />
@@ -31,8 +21,8 @@
           </label>
 
           <div class="acciones-formulario">
-            <button type="submit" class="boton-principal" :disabled="guardando || tiposFamilia.length === 0">
-              {{ guardando ? 'Guardando...' : 'Crear familia' }}
+            <button type="submit" class="boton-principal" :disabled="guardando">
+              {{ guardando ? 'Guardando...' : 'Crear tipo' }}
             </button>
             <button type="button" class="boton-secundario" @click="reiniciarFormulario">
               Limpiar
@@ -44,10 +34,10 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Familias disponibles</h3>
-            <p class="texto-ayuda">Cada familia muestra el numero de articulos asociados.</p>
+            <h3>Tipos disponibles</h3>
+            <p class="texto-ayuda">Cada tipo muestra cuantas familias lo tienen asignado.</p>
           </div>
-          <span class="contador-panel">{{ familias.length }}</span>
+          <span class="contador-panel">{{ tiposFamilia.length }}</span>
         </div>
 
         <article v-if="alertaSuccess" class="alerta alerta-success">
@@ -58,23 +48,18 @@
           {{ alertaDanger }}
         </article>
 
-        <article v-if="!cargando && tiposFamilia.length === 0" class="alerta alerta-danger">
-          Primero debes crear al menos un tipo de familia en el modulo "Tipos de familia".
-        </article>
+        <div v-if="cargando" class="estado-carga">Cargando tipos...</div>
 
-        <div v-if="cargando" class="estado-carga">Cargando familias...</div>
-
-        <ul v-else class="lista-familias">
-          <li v-for="familia in familias" :key="familia.id">
+        <ul v-else class="lista-tipos">
+          <li v-for="tipo in tiposFamilia" :key="tipo.id">
             <div>
-              <strong>{{ familia.nombre }}</strong>
-              <span class="etiqueta-tipo">{{ familia.tipo }}</span>
-              <p>{{ familia.descripcion || 'Sin descripcion' }}</p>
+              <strong>{{ tipo.nombre }}</strong>
+              <p>{{ tipo.descripcion || 'Sin descripcion' }}</p>
             </div>
-            <span class="badge-total">{{ familia.total_articulos }}</span>
+            <span class="badge-total">{{ tipo.total_familias }}</span>
           </li>
-          <li v-if="familias.length === 0" class="sin-resultados">
-            No hay familias creadas.
+          <li v-if="tiposFamilia.length === 0" class="sin-resultados">
+            No hay tipos de familia creados.
           </li>
         </ul>
       </article>
@@ -90,11 +75,9 @@ const cargando = ref(false)
 const guardando = ref(false)
 const alertaSuccess = ref('')
 const alertaDanger = ref('')
-const familias = ref([])
 const tiposFamilia = ref([])
 
 const formulario = reactive({
-  id_tipo: '',
   nombre: '',
   descripcion: '',
 })
@@ -105,26 +88,16 @@ function limpiarAlertas() {
 }
 
 function reiniciarFormulario() {
-  formulario.id_tipo = ''
   formulario.nombre = ''
   formulario.descripcion = ''
 }
 
 async function cargarTiposFamilia() {
-  try {
-    const payload = await obtener('/api/tipos-familia', 'No se pudieron cargar los tipos de familia.')
-    tiposFamilia.value = payload.tiposFamilia
-  } catch (error) {
-    alertaDanger.value = error.message
-  }
-}
-
-async function cargarFamilias() {
   cargando.value = true
 
   try {
-    const payload = await obtener('/api/familias', 'No se pudieron cargar las familias.')
-    familias.value = payload.familias
+    const payload = await obtener('/api/tipos-familia', 'No se pudieron cargar los tipos de familia.')
+    tiposFamilia.value = payload.tiposFamilia
   } catch (error) {
     alertaDanger.value = error.message
   } finally {
@@ -132,22 +105,15 @@ async function cargarFamilias() {
   }
 }
 
-async function guardarFamilia() {
+async function guardarTipoFamilia() {
   guardando.value = true
   limpiarAlertas()
 
   try {
-    await enviar(
-      '/api/familias',
-      {
-        ...formulario,
-        id_tipo: Number(formulario.id_tipo),
-      },
-      'No se pudo crear la familia.'
-    )
-    alertaSuccess.value = 'Familia creada correctamente.'
+    await enviar('/api/tipos-familia', { ...formulario }, 'No se pudo crear el tipo de familia.')
+    alertaSuccess.value = 'Tipo de familia creado correctamente.'
     reiniciarFormulario()
-    await Promise.all([cargarFamilias(), cargarTiposFamilia()])
+    await cargarTiposFamilia()
   } catch (error) {
     alertaDanger.value = error.message
   } finally {
@@ -156,7 +122,7 @@ async function guardarFamilia() {
 }
 
 onMounted(() => {
-  Promise.all([cargarFamilias(), cargarTiposFamilia()])
+  cargarTiposFamilia()
 })
 </script>
 
@@ -221,7 +187,6 @@ onMounted(() => {
 }
 
 input,
-select,
 textarea {
   width: 100%;
   border: 1px solid #c7d8de;
@@ -295,7 +260,7 @@ textarea {
   color: #8f2623;
 }
 
-.lista-familias {
+.lista-tipos {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -303,7 +268,7 @@ textarea {
   gap: 0.75rem;
 }
 
-.lista-familias li {
+.lista-tipos li {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -312,25 +277,14 @@ textarea {
   border-bottom: 1px solid #e2ecef;
 }
 
-.lista-familias li:last-child {
+.lista-tipos li:last-child {
   border-bottom: 0;
   padding-bottom: 0;
 }
 
-.lista-familias p {
+.lista-tipos p {
   margin: 0.25rem 0 0;
   color: #607077;
-}
-
-.etiqueta-tipo {
-  display: inline-flex;
-  margin-top: 0.45rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: #edf5f7;
-  color: #114b5f;
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .estado-carga,

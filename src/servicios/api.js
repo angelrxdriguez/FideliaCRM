@@ -24,3 +24,15 @@ export async function enviar(url, body, mensajePorDefecto = 'No se pudo enviar l
 
   return procesarRespuesta(respuesta, mensajePorDefecto)
 }
+
+export async function actualizar(url, body, mensajePorDefecto = 'No se pudo actualizar la informacion.') {
+  const respuesta = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  return procesarRespuesta(respuesta, mensajePorDefecto)
+}

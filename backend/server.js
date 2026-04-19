@@ -5,7 +5,7 @@ import { configuracionConexion, pool } from './db/conexion.js'
 
 const app = express()
 const puerto = Number(process.env.PUERTO_API || 3101)
-const tablasEsperadas = ['articulos', 'familias', 'usuarios']
+const tablasEsperadas = ['articulos', 'familias', 'tipo_familia', 'usuarios']
 
 app.use(cors())
 app.use(express.json())
@@ -59,6 +59,58 @@ app.get('/api/salud', async (_req, res) => {
   }
 })
 
+app.post('/api/auth/login', async (req, res) => {
+  const { correo, password } = req.body
+
+  if (!correo || !password) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'Correo y password son obligatorios.',
+    })
+  }
+
+  try {
+    const [usuarios] = await pool.query(
+      `
+        SELECT id, nombre_completo, correo, password
+        FROM usuarios
+        WHERE correo = ?
+        LIMIT 1
+      `,
+      [correo.trim().toLowerCase()]
+    )
+
+    if (usuarios.length === 0) {
+      return res.status(401).json({
+        ok: false,
+        mensaje: 'Credenciales incorrectas.',
+      })
+    }
+
+    const usuario = usuarios[0]
+    const passwordValida = await bcrypt.compare(password, usuario.password)
+
+    if (!passwordValida) {
+      return res.status(401).json({
+        ok: false,
+        mensaje: 'Credenciales incorrectas.',
+      })
+    }
+
+    return res.json({
+      ok: true,
+      mensaje: 'Acceso concedido.',
+      usuario: {
+        id: usuario.id,
+        nombre_completo: usuario.nombre_completo,
+        correo: usuario.correo,
+      },
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudo iniciar sesion.')
+  }
+})
+
 app.get('/api/inicio', async (_req, res) => {
   try {
     const tablasFaltantes = await validarEsquemaBase()
@@ -100,9 +152,14 @@ app.get('/api/inicio', async (_req, res) => {
       ),
       pool.query(
         `
-          SELECT id, nombre, descripcion
-          FROM familias
-          ORDER BY id DESC
+          SELECT
+            f.id,
+            f.nombre,
+            f.descripcion,
+            tf.nombre AS tipo
+          FROM familias f
+          INNER JOIN tipo_familia tf ON tf.id = f.id_tipo
+          ORDER BY f.id DESC
           LIMIT 6
         `
       ),
@@ -197,12 +254,15 @@ app.get('/api/familias', async (_req, res) => {
       `
         SELECT
           f.id,
+          f.id_tipo,
           f.nombre,
           f.descripcion,
+          tf.nombre AS tipo,
           COUNT(a.id) AS total_articulos
         FROM familias f
+        INNER JOIN tipo_familia tf ON tf.id = f.id_tipo
         LEFT JOIN articulos a ON a.familia_id = f.id
-        GROUP BY f.id, f.nombre, f.descripcion
+        GROUP BY f.id, f.id_tipo, f.nombre, f.descripcion, tf.nombre
         ORDER BY f.nombre ASC
       `
     )
@@ -217,22 +277,39 @@ app.get('/api/familias', async (_req, res) => {
 })
 
 app.post('/api/familias', async (req, res) => {
-  const { nombre, descripcion } = req.body
+  const { id_tipo, nombre, descripcion } = req.body
 
-  if (!nombre) {
+  if (!id_tipo || !nombre) {
     return res.status(400).json({
       ok: false,
-      mensaje: 'El nombre de la familia es obligatorio.',
+      mensaje: 'El tipo y el nombre de la familia son obligatorios.',
     })
   }
 
   try {
+    const [tiposFamilia] = await pool.query(
+      `
+        SELECT id, nombre
+        FROM tipo_familia
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [Number(id_tipo)]
+    )
+
+    if (tiposFamilia.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'El tipo de familia indicado no existe.',
+      })
+    }
+
     const [resultado] = await pool.query(
       `
-        INSERT INTO familias (nombre, descripcion)
-        VALUES (?, ?)
+        INSERT INTO familias (id_tipo, nombre, descripcion)
+        VALUES (?, ?, ?)
       `,
-      [nombre.trim(), descripcion?.trim() || null]
+      [Number(id_tipo), nombre.trim(), descripcion?.trim() || null]
     )
 
     res.status(201).json({
@@ -240,8 +317,10 @@ app.post('/api/familias', async (req, res) => {
       mensaje: 'Familia creada correctamente.',
       familia: {
         id: resultado.insertId,
+        id_tipo: Number(id_tipo),
         nombre: nombre.trim(),
         descripcion: descripcion?.trim() || null,
+        tipo: tiposFamilia[0].nombre,
       },
     })
   } catch (error) {
@@ -249,13 +328,77 @@ app.post('/api/familias', async (req, res) => {
   }
 })
 
+app.get('/api/tipos-familia', async (_req, res) => {
+  try {
+    const [tiposFamilia] = await pool.query(
+      `
+        SELECT
+          tf.id,
+          tf.nombre,
+          tf.descripcion,
+          COUNT(f.id) AS total_familias
+        FROM tipo_familia tf
+        LEFT JOIN familias f ON f.id_tipo = tf.id
+        GROUP BY tf.id, tf.nombre, tf.descripcion
+        ORDER BY tf.nombre ASC
+      `
+    )
+
+    res.json({
+      ok: true,
+      tiposFamilia,
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudieron obtener los tipos de familia.')
+  }
+})
+
+app.post('/api/tipos-familia', async (req, res) => {
+  const { nombre, descripcion } = req.body
+
+  if (!nombre) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El nombre del tipo de familia es obligatorio.',
+    })
+  }
+
+  try {
+    const [resultado] = await pool.query(
+      `
+        INSERT INTO tipo_familia (nombre, descripcion)
+        VALUES (?, ?)
+      `,
+      [nombre.trim(), descripcion?.trim() || null]
+    )
+
+    res.status(201).json({
+      ok: true,
+      mensaje: 'Tipo de familia creado correctamente.',
+      tipoFamilia: {
+        id: resultado.insertId,
+        nombre: nombre.trim(),
+        descripcion: descripcion?.trim() || null,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo crear el tipo de familia.')
+  }
+})
+
 app.get('/api/articulos', async (_req, res) => {
   try {
     const [familias] = await pool.query(
       `
-        SELECT id, nombre, descripcion
-        FROM familias
-        ORDER BY nombre ASC
+        SELECT
+          f.id,
+          f.id_tipo,
+          f.nombre,
+          f.descripcion,
+          tf.nombre AS tipo
+        FROM familias f
+        INNER JOIN tipo_familia tf ON tf.id = f.id_tipo
+        ORDER BY f.nombre ASC
       `
     )
 
@@ -272,9 +415,11 @@ app.get('/api/articulos', async (_req, res) => {
           a.precio_base,
           a.stock,
           a.activo,
-          f.nombre AS familia
+          f.nombre AS familia,
+          tf.nombre AS tipo_familia
         FROM articulos a
         INNER JOIN familias f ON f.id = a.familia_id
+        INNER JOIN tipo_familia tf ON tf.id = f.id_tipo
         ORDER BY f.nombre ASC, a.nombre ASC
       `
     )
@@ -379,6 +524,112 @@ app.post('/api/articulos', async (req, res) => {
     })
   } catch (error) {
     enviarError(res, error, 'No se pudo crear el articulo.')
+  }
+})
+
+app.put('/api/articulos/:id', async (req, res) => {
+  const articuloId = Number(req.params.id)
+  const {
+    familia_id,
+    nombre,
+    descripcion,
+    sku,
+    formato,
+    unidad_medida,
+    precio_base,
+    stock,
+    activo,
+  } = req.body
+  const familiaId = Number(familia_id)
+  const nombreNormalizado = typeof nombre === 'string' ? nombre.trim() : ''
+  const descripcionNormalizada = typeof descripcion === 'string' ? descripcion.trim() || null : null
+  const skuNormalizado = typeof sku === 'string' ? sku.trim() || null : null
+  const formatoNormalizado = typeof formato === 'string' ? formato.trim() || null : null
+  const unidadNormalizada = typeof unidad_medida === 'string' ? unidad_medida.trim() || null : null
+  const precioNormalizado = Number(precio_base || 0)
+  const stockNormalizado = Number(stock || 0)
+  const activoNormalizado = activo ? 1 : 0
+
+  if (!Number.isInteger(articuloId) || articuloId <= 0 || !Number.isInteger(familiaId) || familiaId <= 0 || !nombreNormalizado) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El articulo, la familia y el nombre son obligatorios.',
+    })
+  }
+
+  try {
+    const [articulos] = await pool.query(
+      `
+        SELECT id
+        FROM articulos
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [articuloId]
+    )
+
+    const [familias] = await pool.query(
+      `
+        SELECT id
+        FROM familias
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [familiaId]
+    )
+
+    if (articulos.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'El articulo indicado no existe.',
+      })
+    }
+
+    if (familias.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'La familia indicada no existe.',
+      })
+    }
+
+    await pool.query(
+      `
+        UPDATE articulos
+        SET
+          familia_id = ?,
+          nombre = ?,
+          descripcion = ?,
+          sku = ?,
+          formato = ?,
+          unidad_medida = ?,
+          precio_base = ?,
+          stock = ?,
+          activo = ?
+        WHERE id = ?
+      `,
+      [
+        familiaId,
+        nombreNormalizado,
+        descripcionNormalizada,
+        skuNormalizado,
+        formatoNormalizado,
+        unidadNormalizada,
+        precioNormalizado,
+        stockNormalizado,
+        activoNormalizado,
+        articuloId,
+      ]
+    )
+
+    res.json({
+      ok: true,
+      mensaje: 'Articulo actualizado correctamente.',
+      articulo: {
+        id: articuloId,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo actualizar el articulo.')
   }
 })
 

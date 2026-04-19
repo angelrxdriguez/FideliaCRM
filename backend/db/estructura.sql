@@ -1,11 +1,26 @@
 CREATE DATABASE IF NOT EXISTS fidelia;
 USE fidelia;
 
-CREATE TABLE familias (
+CREATE TABLE tipo_familia (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL UNIQUE,
-    descripcion VARCHAR(255) NULL
+    descripcion VARCHAR(255) NULL,
+    activo TINYINT(1) DEFAULT 1
 );
+
+CREATE TABLE familias (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_tipo INT NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(255) NULL,
+    activa TINYINT(1) DEFAULT 1,
+    INDEX idx_familias_tipo (id_tipo),
+    CONSTRAINT fk_familias_tipo
+        FOREIGN KEY (id_tipo) REFERENCES tipo_familia(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
+
 
 CREATE TABLE articulos (
     id INT AUTO_INCREMENT PRIMARY KEY,

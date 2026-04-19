@@ -4,8 +4,12 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Crear articulo</h3>
-            <p class="texto-ayuda">Selecciona una familia y registra el articulo en el catalogo.</p>
+            <h3>{{ articuloEditandoId ? 'Editar articulo' : 'Crear articulo' }}</h3>
+            <p class="texto-ayuda">
+              {{ articuloEditandoId
+                ? 'Modifica los datos del articulo seleccionado y guarda los cambios.'
+                : 'Selecciona una familia y registra el articulo en el catalogo.' }}
+            </p>
           </div>
         </div>
 
@@ -19,10 +23,22 @@
 
         <form class="formulario" @submit.prevent="guardarArticulo">
           <label>
+            Tipo de familia
+            <select v-model="formulario.id_tipo" required>
+              <option value="">Selecciona un tipo</option>
+              <option v-for="tipo in tiposFamilia" :key="tipo.id" :value="String(tipo.id)">
+                {{ tipo.nombre }}
+              </option>
+            </select>
+          </label>
+
+          <label>
             Familia
-            <select v-model="formulario.familia_id" required>
-              <option value="">Selecciona una familia</option>
-              <option v-for="familia in familiasDisponibles" :key="familia.id" :value="String(familia.id)">
+            <select v-model="formulario.familia_id" :disabled="!formulario.id_tipo" required>
+              <option value="">
+                {{ formulario.id_tipo ? 'Selecciona una familia' : 'Primero selecciona un tipo' }}
+              </option>
+              <option v-for="familia in familiasFiltradas" :key="familia.id" :value="String(familia.id)">
                 {{ familia.nombre }}
               </option>
             </select>
@@ -69,11 +85,15 @@
           </label>
 
           <div class="acciones-formulario">
-            <button type="submit" class="boton-principal" :disabled="guardando || familiasDisponibles.length === 0">
-              {{ guardando ? 'Guardando...' : 'Crear articulo' }}
+            <button
+              type="submit"
+              class="boton-principal"
+              :disabled="guardando || tiposFamilia.length === 0 || familiasFiltradas.length === 0"
+            >
+              {{ guardando ? 'Guardando...' : articuloEditandoId ? 'Guardar cambios' : 'Crear articulo' }}
             </button>
             <button type="button" class="boton-secundario" @click="reiniciarFormulario">
-              Limpiar
+              {{ articuloEditandoId ? 'Cancelar edicion' : 'Limpiar' }}
             </button>
           </div>
         </form>
@@ -95,6 +115,7 @@
             <div class="titulo-familia">
               <div>
                 <h4>{{ familia.nombre }}</h4>
+                <span class="etiqueta-tipo">{{ familia.tipo }}</span>
                 <p>{{ familia.descripcion || 'Sin descripcion' }}</p>
               </div>
               <span class="badge-total">{{ familia.articulos.length }}</span>
@@ -103,20 +124,19 @@
             <table v-if="familia.articulos.length > 0">
               <thead>
                 <tr>
-                  <th>Articulo</th>
+                  <th>Nombre</th>
                   <th>SKU</th>
-                  <th>Formato</th>
                   <th>Unidad</th>
                   <th>Stock</th>
                   <th>Precio</th>
                   <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="articulo in familia.articulos" :key="articulo.id">
-                  <td>{{ articulo.nombre }}</td>
+                  <td>{{ construirNombreArticulo(articulo) }}</td>
                   <td>{{ articulo.sku || '-' }}</td>
-                  <td>{{ articulo.formato || '-' }}</td>
                   <td>{{ articulo.unidad_medida || '-' }}</td>
                   <td>{{ articulo.stock }}</td>
                   <td>{{ formatearMoneda(articulo.precio_base) }}</td>
@@ -127,6 +147,11 @@
                     >
                       {{ articulo.activo ? 'activo' : 'inactivo' }}
                     </span>
+                  </td>
+                  <td>
+                    <button type="button" class="boton-tabla" @click="editarArticulo(articulo)">
+                      Editar
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -141,8 +166,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { enviar, obtener } from '../../servicios/api'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { actualizar, enviar, obtener } from '../../servicios/api'
 
 const cargando = ref(false)
 const guardando = ref(false)
@@ -150,8 +175,12 @@ const alertaSuccess = ref('')
 const alertaDanger = ref('')
 const familiasConArticulos = ref([])
 const familiasDisponibles = ref([])
+const tiposFamilia = ref([])
+const articuloEditandoId = ref(null)
+const sincronizandoFormulario = ref(false)
 
 const formulario = reactive({
+  id_tipo: '',
   familia_id: '',
   nombre: '',
   descripcion: '',
@@ -166,6 +195,9 @@ const formulario = reactive({
 const totalArticulos = computed(() =>
   familiasConArticulos.value.reduce((total, familia) => total + familia.articulos.length, 0)
 )
+const familiasFiltradas = computed(() =>
+  familiasDisponibles.value.filter((familia) => String(familia.id_tipo) === formulario.id_tipo)
+)
 
 function limpiarAlertas() {
   alertaSuccess.value = ''
@@ -173,6 +205,8 @@ function limpiarAlertas() {
 }
 
 function reiniciarFormulario() {
+  articuloEditandoId.value = null
+  formulario.id_tipo = ''
   formulario.familia_id = ''
   formulario.nombre = ''
   formulario.descripcion = ''
@@ -183,6 +217,15 @@ function reiniciarFormulario() {
   formulario.stock = 0
   formulario.activo = true
 }
+
+watch(
+  () => formulario.id_tipo,
+  () => {
+    if (!sincronizandoFormulario.value) {
+      formulario.familia_id = ''
+    }
+  }
+)
 
 async function cargarArticulos() {
   cargando.value = true
@@ -206,27 +249,69 @@ async function cargarFamilias() {
   }
 }
 
+async function cargarTiposFamilia() {
+  try {
+    const payload = await obtener('/api/tipos-familia', 'No se pudieron cargar los tipos de familia.')
+    tiposFamilia.value = payload.tiposFamilia
+  } catch (error) {
+    alertaDanger.value = error.message
+  }
+}
+
 async function guardarArticulo() {
   guardando.value = true
   limpiarAlertas()
 
   try {
-    await enviar(
-      '/api/articulos',
-      {
-        ...formulario,
-        familia_id: Number(formulario.familia_id),
-      },
-      'No se pudo crear el articulo.'
-    )
-    alertaSuccess.value = 'Articulo creado correctamente.'
+    const payload = {
+      ...formulario,
+      familia_id: Number(formulario.familia_id),
+    }
+
+    if (articuloEditandoId.value) {
+      await actualizar(
+        `/api/articulos/${articuloEditandoId.value}`,
+        payload,
+        'No se pudo actualizar el articulo.'
+      )
+      alertaSuccess.value = 'Articulo actualizado correctamente.'
+    } else {
+      await enviar('/api/articulos', payload, 'No se pudo crear el articulo.')
+      alertaSuccess.value = 'Articulo creado correctamente.'
+    }
+
     reiniciarFormulario()
-    await Promise.all([cargarArticulos(), cargarFamilias()])
+    await Promise.all([cargarArticulos(), cargarFamilias(), cargarTiposFamilia()])
   } catch (error) {
     alertaDanger.value = error.message
   } finally {
     guardando.value = false
   }
+}
+
+async function editarArticulo(articulo) {
+  const familia = familiasDisponibles.value.find((item) => item.id === articulo.familia_id)
+
+  if (!familia) {
+    alertaDanger.value = 'No se pudo preparar la edicion porque la familia del articulo no existe.'
+    return
+  }
+
+  limpiarAlertas()
+  articuloEditandoId.value = articulo.id
+  sincronizandoFormulario.value = true
+  formulario.id_tipo = String(familia.id_tipo)
+  await nextTick()
+  formulario.familia_id = String(articulo.familia_id)
+  formulario.nombre = articulo.nombre || ''
+  formulario.descripcion = articulo.descripcion || ''
+  formulario.sku = articulo.sku || ''
+  formulario.formato = articulo.formato || ''
+  formulario.unidad_medida = articulo.unidad_medida || ''
+  formulario.precio_base = Number(articulo.precio_base || 0)
+  formulario.stock = Number(articulo.stock || 0)
+  formulario.activo = Boolean(articulo.activo)
+  sincronizandoFormulario.value = false
 }
 
 function formatearMoneda(valor) {
@@ -236,8 +321,15 @@ function formatearMoneda(valor) {
   }).format(Number(valor || 0))
 }
 
+function construirNombreArticulo(articulo) {
+  const nombre = articulo.nombre || ''
+  const formato = articulo.formato || ''
+
+  return formato ? `${nombre} - ${formato}` : nombre
+}
+
 onMounted(() => {
-  Promise.all([cargarArticulos(), cargarFamilias()])
+  Promise.all([cargarArticulos(), cargarFamilias(), cargarTiposFamilia()])
 })
 </script>
 
@@ -277,6 +369,17 @@ onMounted(() => {
 .titulo-familia p {
   margin: 0.35rem 0 0;
   color: #4d626a;
+}
+
+.etiqueta-tipo {
+  display: inline-flex;
+  margin-top: 0.45rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #edf5f7;
+  color: #114b5f;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .contador-panel,
@@ -355,6 +458,26 @@ textarea {
 .boton-principal:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.boton-tabla {
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid #114b5f;
+  background: #ffffff;
+  color: #114b5f;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.boton-tabla:hover {
+  background: #f1f7f9;
+  color: #0d3c4c;
+  transform: translateY(-1px);
 }
 
 .boton-secundario {

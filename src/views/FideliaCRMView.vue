@@ -28,6 +28,15 @@
         <strong>{{ paginaActual.nombre }}</strong>
         <span>{{ paginaActual.descripcion }}</span>
       </section>
+
+      <section class="panel-informativo usuario-panel">
+        <p class="etiqueta-panel">Sesion</p>
+        <strong>{{ usuario.nombre_completo }}</strong>
+        <span>{{ usuario.correo }}</span>
+        <button type="button" class="boton-cerrar-sesion" @click="$emit('cerrar-sesion')">
+          Cerrar sesion
+        </button>
+      </section>
     </aside>
 
     <main class="contenido-principal">
@@ -49,7 +58,17 @@ import { computed, ref } from 'vue'
 import ArticulosPagina from '../components/paginas/ArticulosPagina.vue'
 import FamiliasPagina from '../components/paginas/FamiliasPagina.vue'
 import InicioPagina from '../components/paginas/InicioPagina.vue'
+import TiposFamiliaPagina from '../components/paginas/TiposFamiliaPagina.vue'
 import UsuariosPagina from '../components/paginas/UsuariosPagina.vue'
+
+defineProps({
+  usuario: {
+    type: Object,
+    required: true,
+  },
+})
+
+defineEmits(['cerrar-sesion'])
 
 const paginas = [
   {
@@ -67,10 +86,17 @@ const paginas = [
     componente: UsuariosPagina,
   },
   {
+    id: 'tipos-familia',
+    nombre: 'Tipos de familia',
+    descripcion: 'Clasificacion base',
+    ayuda: 'Alta de tipos para poder asignarlos de forma obligatoria al crear familias.',
+    componente: TiposFamiliaPagina,
+  },
+  {
     id: 'familias',
     nombre: 'Familias',
     descripcion: 'Clasificacion',
-    ayuda: 'Gestion de familias para organizar el catalogo de articulos.',
+    ayuda: 'Gestion de familias con asignacion obligatoria a un tipo de familia.',
     componente: FamiliasPagina,
   },
   {
@@ -186,6 +212,28 @@ const componenteActivo = computed(() => paginaActual.value.componente)
   border: 1px solid rgba(245, 251, 252, 0.2);
   border-radius: 0.85rem;
   background: rgba(245, 251, 252, 0.08);
+}
+
+.usuario-panel {
+  margin-top: auto;
+}
+
+.boton-cerrar-sesion {
+  margin-top: 0.55rem;
+  border: 1px solid rgba(245, 251, 252, 0.28);
+  background: transparent;
+  color: var(--color-sobre-principal);
+  border-radius: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.boton-cerrar-sesion:hover {
+  background: rgba(245, 251, 252, 0.14);
+  transform: translateY(-1px);
 }
 
 .etiqueta-panel {

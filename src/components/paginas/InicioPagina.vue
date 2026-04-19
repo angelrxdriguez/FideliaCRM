@@ -19,9 +19,6 @@
     </section>
 
     <section class="barra-acciones">
-      <button type="button" class="boton-secundario" @click="verificarConexion">
-        Verificar SQL
-      </button>
       <button type="button" class="boton-principal" @click="cargarInicio">
         Actualizar resumen
       </button>
@@ -122,6 +119,7 @@
           <ul class="lista-simple">
             <li v-for="familia in familias" :key="familia.id">
               <strong>{{ familia.nombre }}</strong>
+              <span class="etiqueta-tipo">{{ familia.tipo || 'Sin tipo' }}</span>
               <span>{{ familia.descripcion || 'Sin descripcion' }}</span>
             </li>
             <li v-if="!cargando && familias.length === 0" class="sin-resultados-lista">
@@ -207,21 +205,6 @@ async function cargarInicio() {
     alertaDanger.value = error.message
   } finally {
     cargando.value = false
-  }
-}
-
-async function verificarConexion() {
-  limpiarAlertas()
-
-  try {
-    const payload = await obtener('/api/salud', 'No se pudo validar la conexion.')
-    conexion.baseDeDatos = payload.baseDeDatos
-    conexion.servidor = payload.servidor
-    conexionActiva.value = true
-    alertaSuccess.value = 'La conexion con MySQL responde correctamente.'
-  } catch (error) {
-    conexionActiva.value = false
-    alertaDanger.value = error.message
   }
 }
 
@@ -424,6 +407,17 @@ onMounted(() => {
 .lista-simple span {
   color: #607077;
   word-break: break-word;
+}
+
+.etiqueta-tipo {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #edf5f7;
+  color: #114b5f;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 table {
