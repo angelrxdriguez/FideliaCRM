@@ -53,7 +53,7 @@
           <div class="fila-doble">
             <label>
               Ciudad
-              <input v-model.trim="formulario.ciudad" type="text" />
+              <input v-model.trim="formulario.ciudad" type="text" list="lista-ciudades-cp" />
             </label>
 
             <label>
@@ -64,8 +64,25 @@
 
           <label>
             Codigo postal
-            <input v-model.trim="formulario.codigo_postal" type="text" />
+            <div class="campo-cp">
+              <input v-model.trim="formulario.codigo_postal" type="text" maxlength="5" />
+              <button
+                type="button"
+                class="boton-cp"
+                :disabled="cargandoCodigoPostal || formulario.codigo_postal.length !== 5"
+                @click="autocompletarPorCodigoPostal"
+              >
+                {{ cargandoCodigoPostal ? 'Buscando...' : 'Completar' }}
+              </button>
+            </div>
+            <small class="texto-ayuda-inline">
+              Introduce 5 digitos y se completaran provincia y ciudad.
+            </small>
           </label>
+
+          <datalist id="lista-ciudades-cp">
+            <option v-for="ciudad in ciudadesSugeridas" :key="ciudad" :value="ciudad"></option>
+          </datalist>
 
           <div class="fila-doble">
             <label>
@@ -149,7 +166,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { enviar, obtener } from '../../servicios/api'
 
 const cargando = ref(false)
@@ -158,6 +175,9 @@ const alertaSuccess = ref('')
 const alertaDanger = ref('')
 const clientes = ref([])
 const tarifas = ref([])
+const cargandoCodigoPostal = ref(false)
+const ciudadesSugeridas = ref([])
+let temporizadorCodigoPostal = null
 
 const formulario = reactive({
   nombre: '',
@@ -200,6 +220,7 @@ function reiniciarFormulario() {
   formulario.id_tarifa = ''
   formulario.id_comercial = ''
   formulario.activo = true
+  ciudadesSugeridas.value = []
 }
 
 async function cargarClientes() {
@@ -247,6 +268,52 @@ async function guardarCliente() {
     guardando.value = false
   }
 }
+
+async function autocompletarPorCodigoPostal() {
+  const cp = formulario.codigo_postal.trim()
+
+  if (!/^\d{5}$/.test(cp)) {
+    return
+  }
+
+  cargandoCodigoPostal.value = true
+
+  try {
+    const payload = await obtener(`/api/codigos-postales/${cp}`, 'No se pudo consultar el codigo postal.')
+    ciudadesSugeridas.value = payload.ciudades || []
+
+    if (payload.provincia) {
+      formulario.provincia = payload.provincia
+    }
+
+    if ((!formulario.ciudad || formulario.ciudad.trim() === '') && payload.ciudad_principal) {
+      formulario.ciudad = payload.ciudad_principal
+    }
+  } catch (error) {
+    ciudadesSugeridas.value = []
+    alertaDanger.value = error.message
+  } finally {
+    cargandoCodigoPostal.value = false
+  }
+}
+
+watch(
+  () => formulario.codigo_postal,
+  (nuevoValor) => {
+    if (temporizadorCodigoPostal) {
+      clearTimeout(temporizadorCodigoPostal)
+    }
+
+    if (!/^\d{5}$/.test((nuevoValor || '').trim())) {
+      ciudadesSugeridas.value = []
+      return
+    }
+
+    temporizadorCodigoPostal = setTimeout(() => {
+      autocompletarPorCodigoPostal()
+    }, 450)
+  }
+)
 
 onMounted(() => {
   Promise.all([cargarClientes(), cargarTarifas()])
@@ -325,6 +392,34 @@ select {
   border-radius: 0.55rem;
   padding: 0.65rem 0.7rem;
   font: inherit;
+}
+
+.campo-cp {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.campo-cp input {
+  flex: 1;
+}
+
+.boton-cp {
+  border: 1px solid #114b5f;
+  background: #ffffff;
+  color: #114b5f;
+  border-radius: 0.55rem;
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.boton-cp:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.texto-ayuda-inline {
+  color: #607077;
 }
 
 .campo-checkbox {

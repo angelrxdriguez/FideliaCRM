@@ -4,8 +4,12 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Crear tarifa</h3>
-            <p class="texto-ayuda">Define el nombre y el porcentaje de beneficio de la tarifa.</p>
+            <h3>{{ tarifaEditandoId ? 'Editar tarifa' : 'Crear tarifa' }}</h3>
+            <p class="texto-ayuda">
+              {{ tarifaEditandoId
+                ? 'Modifica la tarifa seleccionada y guarda los cambios.'
+                : 'Define el nombre y el porcentaje de beneficio de la tarifa.' }}
+            </p>
           </div>
         </div>
 
@@ -27,10 +31,10 @@
 
           <div class="acciones-formulario">
             <button type="submit" class="boton-principal" :disabled="guardando">
-              {{ guardando ? 'Guardando...' : 'Crear tarifa' }}
+              {{ guardando ? 'Guardando...' : tarifaEditandoId ? 'Guardar cambios' : 'Crear tarifa' }}
             </button>
             <button type="button" class="boton-secundario" @click="reiniciarFormulario">
-              Limpiar
+              {{ tarifaEditandoId ? 'Cancelar edicion' : 'Limpiar' }}
             </button>
           </div>
         </form>
@@ -62,6 +66,7 @@
               <th>Beneficio</th>
               <th>Clientes</th>
               <th>Estado</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -74,9 +79,14 @@
                   {{ tarifa.activa ? 'activa' : 'inactiva' }}
                 </span>
               </td>
+              <td>
+                <button type="button" class="boton-tabla" @click="editarTarifa(tarifa)">
+                  Editar
+                </button>
+              </td>
             </tr>
             <tr v-if="tarifas.length === 0">
-              <td colspan="4" class="sin-resultados">No hay tarifas creadas.</td>
+              <td colspan="5" class="sin-resultados">No hay tarifas creadas.</td>
             </tr>
           </tbody>
         </table>
@@ -87,13 +97,14 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { enviar, obtener } from '../../servicios/api'
+import { actualizar, enviar, obtener } from '../../servicios/api'
 
 const cargando = ref(false)
 const guardando = ref(false)
 const alertaSuccess = ref('')
 const alertaDanger = ref('')
 const tarifas = ref([])
+const tarifaEditandoId = ref(null)
 
 const formulario = reactive({
   nombre: '',
@@ -107,6 +118,7 @@ function limpiarAlertas() {
 }
 
 function reiniciarFormulario() {
+  tarifaEditandoId.value = null
   formulario.nombre = ''
   formulario.porcentaje_beneficio = 0
   formulario.activa = true
@@ -134,8 +146,14 @@ async function guardarTarifa() {
   limpiarAlertas()
 
   try {
-    await enviar('/api/tarifas', { ...formulario }, 'No se pudo crear la tarifa.')
-    alertaSuccess.value = 'Tarifa creada correctamente.'
+    if (tarifaEditandoId.value) {
+      await actualizar(`/api/tarifas/${tarifaEditandoId.value}`, { ...formulario }, 'No se pudo actualizar la tarifa.')
+      alertaSuccess.value = 'Tarifa actualizada correctamente.'
+    } else {
+      await enviar('/api/tarifas', { ...formulario }, 'No se pudo crear la tarifa.')
+      alertaSuccess.value = 'Tarifa creada correctamente.'
+    }
+
     reiniciarFormulario()
     await cargarTarifas()
   } catch (error) {
@@ -143,6 +161,14 @@ async function guardarTarifa() {
   } finally {
     guardando.value = false
   }
+}
+
+function editarTarifa(tarifa) {
+  limpiarAlertas()
+  tarifaEditandoId.value = tarifa.id
+  formulario.nombre = tarifa.nombre || ''
+  formulario.porcentaje_beneficio = Number(tarifa.porcentaje_beneficio || 0)
+  formulario.activa = Boolean(tarifa.activa)
 }
 
 onMounted(() => {
@@ -238,6 +264,16 @@ input {
   padding: 0.7rem 1rem;
   border-radius: 0.6rem;
   border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.boton-tabla {
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid #114b5f;
+  background: #ffffff;
+  color: #114b5f;
+  font: inherit;
   cursor: pointer;
 }
 

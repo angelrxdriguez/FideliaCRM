@@ -417,6 +417,64 @@ app.post('/api/tarifas', async (req, res) => {
   }
 })
 
+app.put('/api/tarifas/:id', async (req, res) => {
+  const tarifaId = Number(req.params.id)
+  const { nombre, porcentaje_beneficio, activa } = req.body
+  const nombreNormalizado = typeof nombre === 'string' ? nombre.trim() : ''
+  const porcentajeNormalizado = Number(porcentaje_beneficio)
+
+  if (!Number.isInteger(tarifaId) || tarifaId <= 0 || !nombreNormalizado || Number.isNaN(porcentajeNormalizado)) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'La tarifa, el nombre y el porcentaje son obligatorios.',
+    })
+  }
+
+  try {
+    const [tarifas] = await pool.query(
+      `
+        SELECT id
+        FROM tarifas
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [tarifaId]
+    )
+
+    if (tarifas.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'La tarifa indicada no existe.',
+      })
+    }
+
+    await pool.query(
+      `
+        UPDATE tarifas
+        SET
+          nombre = ?,
+          porcentaje_beneficio = ?,
+          activa = ?
+        WHERE id = ?
+      `,
+      [nombreNormalizado, porcentajeNormalizado, activa ? 1 : 0, tarifaId]
+    )
+
+    res.json({
+      ok: true,
+      mensaje: 'Tarifa actualizada correctamente.',
+      tarifa: {
+        id: tarifaId,
+        nombre: nombreNormalizado,
+        porcentaje_beneficio: porcentajeNormalizado,
+        activa: activa ? 1 : 0,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo actualizar la tarifa.')
+  }
+})
+
 app.get('/api/clientes', async (_req, res) => {
   try {
     const [clientes] = await pool.query(
@@ -539,6 +597,55 @@ app.post('/api/clientes', async (req, res) => {
     })
   } catch (error) {
     enviarError(res, error, 'No se pudo crear el cliente.')
+  }
+})
+
+app.get('/api/codigos-postales/:cp', async (req, res) => {
+  const cp = String(req.params.cp || '').trim()
+
+  if (!/^\d{5}$/.test(cp)) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El codigo postal debe tener 5 digitos.',
+    })
+  }
+
+  try {
+    const respuesta = await fetch(`https://api.zippopotam.us/es/${cp}`)
+
+    if (respuesta.status === 404) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'No se encontro informacion para ese codigo postal.',
+      })
+    }
+
+    if (!respuesta.ok) {
+      throw new Error(`Servicio externo devolvio estado ${respuesta.status}`)
+    }
+
+    const payload = await respuesta.json()
+    const lugares = Array.isArray(payload.places) ? payload.places : []
+
+    if (lugares.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'No se encontraron localidades para ese codigo postal.',
+      })
+    }
+
+    const provincia = lugares[0].state || null
+    const ciudades = [...new Set(lugares.map((lugar) => lugar['place name']).filter(Boolean))]
+
+    res.json({
+      ok: true,
+      codigo_postal: cp,
+      provincia,
+      ciudades,
+      ciudad_principal: ciudades[0] || null,
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo consultar el codigo postal.')
   }
 })
 
