@@ -59,3 +59,39 @@ CREATE TABLE usuarios (
         ON UPDATE CASCADE
         ON DELETE SET NULL
 );
+
+CREATE TABLE tarifas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    porcentaje_beneficio DECIMAL(5,2) NOT NULL,
+    activa TINYINT(1) DEFAULT 1
+);
+
+CREATE TABLE clientes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    nombre_fiscal VARCHAR(150) NULL,
+    cif VARCHAR(20) NULL UNIQUE,
+    telefono VARCHAR(30) NULL,
+    email VARCHAR(150) NULL,
+    direccion VARCHAR(255) NULL,
+    ciudad VARCHAR(100) NULL,
+    provincia VARCHAR(100) NULL,
+    codigo_postal VARCHAR(10) NULL,
+    latitud DECIMAL(10,7) NULL,
+    longitud DECIMAL(10,7) NULL,
+    id_tarifa INT NOT NULL,
+    id_comercial INT NULL,
+    activo TINYINT(1) DEFAULT 1,
+    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_clientes_tarifa (id_tarifa),
+    INDEX idx_clientes_comercial (id_comercial),
+    CONSTRAINT fk_clientes_tarifas
+        FOREIGN KEY (id_tarifa) REFERENCES tarifas(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_clientes_comercial
+        FOREIGN KEY (id_comercial) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);

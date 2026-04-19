@@ -11,7 +11,7 @@
 
       <nav class="navegacion-menu">
         <button
-          v-for="pagina in paginas"
+          v-for="pagina in paginasMenu"
           :key="pagina.id"
           type="button"
           class="boton-menu"
@@ -28,15 +28,6 @@
         <strong>{{ paginaActual.nombre }}</strong>
         <span>{{ paginaActual.descripcion }}</span>
       </section>
-
-      <section class="panel-informativo usuario-panel">
-        <p class="etiqueta-panel">Sesion</p>
-        <strong>{{ usuario.nombre_completo }}</strong>
-        <span>{{ usuario.correo }}</span>
-        <button type="button" class="boton-cerrar-sesion" @click="$emit('cerrar-sesion')">
-          Cerrar sesion
-        </button>
-      </section>
     </aside>
 
     <main class="contenido-principal">
@@ -46,9 +37,26 @@
           <h2>{{ paginaActual.nombre }}</h2>
           <p class="texto-ayuda">{{ paginaActual.ayuda }}</p>
         </div>
+
+        <button
+          type="button"
+          class="boton-perfil"
+          :class="{ activo: paginaActiva === 'perfil' }"
+          aria-label="Abrir perfil"
+          @click="paginaActiva = 'perfil'"
+        >
+          <span class="icono-perfil" aria-hidden="true">
+            <span class="cabeza"></span>
+            <span class="cuerpo"></span>
+          </span>
+        </button>
       </header>
 
-      <component :is="componenteActivo" />
+      <component
+        :is="componenteActivo"
+        v-bind="paginaActiva === 'perfil' ? { usuario } : {}"
+        @cerrar-sesion="$emit('cerrar-sesion')"
+      />
     </main>
   </div>
 </template>
@@ -56,9 +64,12 @@
 <script setup>
 import { computed, ref } from 'vue'
 import ArticulosPagina from '../components/paginas/ArticulosPagina.vue'
+import ClientesPagina from '../components/paginas/ClientesPagina.vue'
 import FamiliasPagina from '../components/paginas/FamiliasPagina.vue'
 import InicioPagina from '../components/paginas/InicioPagina.vue'
+import PerfilPagina from '../components/paginas/PerfilPagina.vue'
 import RolesUsuariosPagina from '../components/paginas/RolesUsuariosPagina.vue'
+import TarifasPagina from '../components/paginas/TarifasPagina.vue'
 import TiposFamiliaPagina from '../components/paginas/TiposFamiliaPagina.vue'
 import UsuariosPagina from '../components/paginas/UsuariosPagina.vue'
 
@@ -78,6 +89,27 @@ const paginas = [
     descripcion: 'Resumen general',
     ayuda: 'Vision general de conexion, volumen y ultimos registros.',
     componente: InicioPagina,
+  },
+  {
+    id: 'perfil',
+    nombre: 'Perfil',
+    descripcion: 'Sesion activa',
+    ayuda: 'Consulta la informacion de tu cuenta actual y cierra sesion desde aqui.',
+    componente: PerfilPagina,
+  },
+  {
+    id: 'tarifas',
+    nombre: 'Tarifas',
+    descripcion: 'Margenes comerciales',
+    ayuda: 'Creacion de tarifas con su porcentaje de beneficio para asignarlas a clientes.',
+    componente: TarifasPagina,
+  },
+  {
+    id: 'clientes',
+    nombre: 'Clientes',
+    descripcion: 'Cartera comercial',
+    ayuda: 'Alta de clientes con asignacion obligatoria de tarifa.',
+    componente: ClientesPagina,
   },
   {
     id: 'roles-usuarios',
@@ -117,6 +149,7 @@ const paginas = [
 ]
 
 const paginaActiva = ref('inicio')
+const paginasMenu = computed(() => paginas.filter((pagina) => pagina.id !== 'perfil'))
 
 const paginaActual = computed(
   () => paginas.find((pagina) => pagina.id === paginaActiva.value) || paginas[0]
@@ -222,28 +255,6 @@ const componenteActivo = computed(() => paginaActual.value.componente)
   background: rgba(245, 251, 252, 0.08);
 }
 
-.usuario-panel {
-  margin-top: auto;
-}
-
-.boton-cerrar-sesion {
-  margin-top: 0.55rem;
-  border: 1px solid rgba(245, 251, 252, 0.28);
-  background: transparent;
-  color: var(--color-sobre-principal);
-  border-radius: 0.6rem;
-  padding: 0.65rem 0.8rem;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.boton-cerrar-sesion:hover {
-  background: rgba(245, 251, 252, 0.14);
-  transform: translateY(-1px);
-}
-
 .etiqueta-panel {
   margin: 0;
   font-size: 0.76rem;
@@ -261,7 +272,7 @@ const componenteActivo = computed(() => paginaActual.value.componente)
 .cabecera-contenido {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
 }
 
@@ -278,6 +289,60 @@ const componenteActivo = computed(() => paginaActual.value.componente)
 .texto-ayuda {
   margin: 0.35rem 0 0;
   color: #4d626a;
+}
+
+.boton-perfil {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border: 1px solid rgba(17, 75, 95, 0.18);
+  border-radius: 1rem;
+  background: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(17, 75, 95, 0.08);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.boton-perfil:hover,
+.boton-perfil.activo {
+  transform: translateY(-1px);
+  border-color: rgba(17, 75, 95, 0.38);
+  background: #f4f9fa;
+}
+
+.icono-perfil {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+}
+
+.cabeza {
+  position: absolute;
+  top: 1px;
+  left: 6px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #114b5f;
+  border-radius: 999px;
+}
+
+.cuerpo {
+  position: absolute;
+  bottom: 1px;
+  left: 2px;
+  width: 18px;
+  height: 10px;
+  border: 2px solid #114b5f;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  border-bottom: 0;
 }
 
 @media (max-width: 900px) {

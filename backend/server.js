@@ -5,7 +5,7 @@ import { configuracionConexion, pool } from './db/conexion.js'
 
 const app = express()
 const puerto = Number(process.env.PUERTO_API || 3101)
-const tablasEsperadas = ['articulos', 'familias', 'tipo_familia', 'roles_usuarios', 'usuarios']
+const tablasEsperadas = ['articulos', 'familias', 'tipo_familia', 'roles_usuarios', 'usuarios', 'tarifas', 'clientes']
 
 app.use(cors())
 app.use(express.json())
@@ -72,9 +72,15 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const [usuarios] = await pool.query(
       `
-        SELECT id, nombre_completo, correo, password
-        FROM usuarios
-        WHERE correo = ?
+        SELECT
+          u.id,
+          u.nombre_completo,
+          u.correo,
+          u.password,
+          r.nombre AS rol
+        FROM usuarios u
+        LEFT JOIN roles_usuarios r ON r.id = u.rol_id
+        WHERE u.correo = ?
         LIMIT 1
       `,
       [correo.trim().toLowerCase()]
@@ -104,6 +110,7 @@ app.post('/api/auth/login', async (req, res) => {
         id: usuario.id,
         nombre_completo: usuario.nombre_completo,
         correo: usuario.correo,
+        rol: usuario.rol,
       },
     })
   } catch (error) {
@@ -346,6 +353,192 @@ app.post('/api/roles-usuarios', async (req, res) => {
     })
   } catch (error) {
     enviarError(res, error, 'No se pudo crear el rol de usuario.')
+  }
+})
+
+app.get('/api/tarifas', async (_req, res) => {
+  try {
+    const [tarifas] = await pool.query(
+      `
+        SELECT
+          t.id,
+          t.nombre,
+          t.porcentaje_beneficio,
+          t.activa,
+          COUNT(c.id) AS total_clientes
+        FROM tarifas t
+        LEFT JOIN clientes c ON c.id_tarifa = t.id
+        GROUP BY t.id, t.nombre, t.porcentaje_beneficio, t.activa
+        ORDER BY t.nombre ASC
+      `
+    )
+
+    res.json({
+      ok: true,
+      tarifas,
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudieron obtener las tarifas.')
+  }
+})
+
+app.post('/api/tarifas', async (req, res) => {
+  const { nombre, porcentaje_beneficio, activa } = req.body
+  const porcentajeNormalizado = Number(porcentaje_beneficio)
+
+  if (!nombre || Number.isNaN(porcentajeNormalizado)) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El nombre y el porcentaje de beneficio son obligatorios.',
+    })
+  }
+
+  try {
+    const [resultado] = await pool.query(
+      `
+        INSERT INTO tarifas (nombre, porcentaje_beneficio, activa)
+        VALUES (?, ?, ?)
+      `,
+      [nombre.trim(), porcentajeNormalizado, activa ? 1 : 0]
+    )
+
+    res.status(201).json({
+      ok: true,
+      mensaje: 'Tarifa creada correctamente.',
+      tarifa: {
+        id: resultado.insertId,
+        nombre: nombre.trim(),
+        porcentaje_beneficio: porcentajeNormalizado,
+        activa: activa ? 1 : 0,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo crear la tarifa.')
+  }
+})
+
+app.get('/api/clientes', async (_req, res) => {
+  try {
+    const [clientes] = await pool.query(
+      `
+        SELECT
+          c.id,
+          c.nombre,
+          c.cif,
+          c.telefono,
+          c.email,
+          c.id_tarifa,
+          c.activo,
+          t.nombre AS tarifa
+        FROM clientes c
+        INNER JOIN tarifas t ON t.id = c.id_tarifa
+        ORDER BY c.id DESC
+      `
+    )
+
+    res.json({
+      ok: true,
+      clientes,
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudieron obtener los clientes.')
+  }
+})
+
+app.post('/api/clientes', async (req, res) => {
+  const {
+    nombre,
+    nombre_fiscal,
+    cif,
+    telefono,
+    email,
+    direccion,
+    ciudad,
+    provincia,
+    codigo_postal,
+    latitud,
+    longitud,
+    id_tarifa,
+    id_comercial,
+    activo,
+  } = req.body
+  const tarifaId = Number(id_tarifa)
+
+  if (!nombre || !Number.isInteger(tarifaId) || tarifaId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El nombre y la tarifa son obligatorios.',
+    })
+  }
+
+  try {
+    const [tarifas] = await pool.query(
+      `
+        SELECT id, nombre
+        FROM tarifas
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [tarifaId]
+    )
+
+    if (tarifas.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'La tarifa indicada no existe.',
+      })
+    }
+
+    const [resultado] = await pool.query(
+      `
+        INSERT INTO clientes (
+          nombre,
+          nombre_fiscal,
+          cif,
+          telefono,
+          email,
+          direccion,
+          ciudad,
+          provincia,
+          codigo_postal,
+          latitud,
+          longitud,
+          id_tarifa,
+          id_comercial,
+          activo
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        nombre.trim(),
+        nombre_fiscal?.trim() || null,
+        cif?.trim() || null,
+        telefono?.trim() || null,
+        email?.trim() || null,
+        direccion?.trim() || null,
+        ciudad?.trim() || null,
+        provincia?.trim() || null,
+        codigo_postal?.trim() || null,
+        latitud !== '' && latitud !== null && latitud !== undefined ? Number(latitud) : null,
+        longitud !== '' && longitud !== null && longitud !== undefined ? Number(longitud) : null,
+        tarifaId,
+        id_comercial ? Number(id_comercial) : null,
+        activo ? 1 : 0,
+      ]
+    )
+
+    res.status(201).json({
+      ok: true,
+      mensaje: 'Cliente creado correctamente.',
+      cliente: {
+        id: resultado.insertId,
+        nombre: nombre.trim(),
+        id_tarifa: tarifaId,
+        tarifa: tarifas[0].nombre,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo crear el cliente.')
   }
 })
 
