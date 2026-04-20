@@ -5,11 +5,6 @@
         <div class="cabecera-panel">
           <div>
             <h3>{{ tarifaEditandoId ? 'Editar tarifa' : 'Crear tarifa' }}</h3>
-            <p class="texto-ayuda">
-              {{ tarifaEditandoId
-                ? 'Modifica la tarifa seleccionada y guarda los cambios.'
-                : 'Define el nombre y el porcentaje de beneficio de la tarifa.' }}
-            </p>
           </div>
         </div>
 
@@ -44,9 +39,7 @@
         <div class="cabecera-panel">
           <div>
             <h3>Tarifas disponibles</h3>
-            <p class="texto-ayuda">Listado de tarifas y cantidad de clientes asociados.</p>
           </div>
-          <span class="contador-panel">{{ tarifas.length }}</span>
         </div>
 
         <article v-if="alertaSuccess" class="alerta alerta-success">
@@ -207,22 +200,6 @@ onMounted(() => {
   color: #114b5f;
 }
 
-.texto-ayuda {
-  margin: 0.35rem 0 0;
-  color: #4d626a;
-}
-
-.contador-panel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e5eff2;
-  color: #114b5f;
-  font-weight: 700;
-}
 
 .formulario {
   display: grid;
@@ -235,22 +212,10 @@ onMounted(() => {
   color: #32464d;
 }
 
-input {
-  width: 100%;
-  border: 1px solid #c7d8de;
-  border-radius: 0.55rem;
-  padding: 0.65rem 0.7rem;
-  font: inherit;
-}
-
 .campo-checkbox {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-}
-
-.campo-checkbox input {
-  width: auto;
 }
 
 .acciones-formulario {
@@ -356,3 +321,4 @@ td {
   }
 }
 </style>
+

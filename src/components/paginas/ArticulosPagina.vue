@@ -5,11 +5,6 @@
         <div class="cabecera-panel">
           <div>
             <h3>{{ articuloEditandoId ? 'Editar articulo' : 'Crear articulo' }}</h3>
-            <p class="texto-ayuda">
-              {{ articuloEditandoId
-                ? 'Modifica los datos del articulo seleccionado y guarda los cambios.'
-                : 'Selecciona una familia y registra el articulo en el catalogo.' }}
-            </p>
           </div>
         </div>
 
@@ -103,9 +98,7 @@
         <div class="cabecera-panel">
           <div>
             <h3>Articulos por familia</h3>
-            <p class="texto-ayuda">Tabla seccionada para revisar el catalogo agrupado.</p>
           </div>
-          <span class="contador-panel">{{ totalArticulos }}</span>
         </div>
 
         <div v-if="cargando" class="estado-carga">Cargando articulos...</div>
@@ -118,7 +111,6 @@
                 <span class="etiqueta-tipo">{{ familia.tipo }}</span>
                 <p>{{ familia.descripcion || 'Sin descripcion' }}</p>
               </div>
-              <span class="badge-total">{{ familia.articulos.length }}</span>
             </div>
 
             <table v-if="familia.articulos.length > 0">
@@ -365,7 +357,6 @@ onMounted(() => {
   color: #114b5f;
 }
 
-.texto-ayuda,
 .titulo-familia p {
   margin: 0.35rem 0 0;
   color: #4d626a;
@@ -382,18 +373,6 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.contador-panel,
-.badge-total {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e5eff2;
-  color: #114b5f;
-  font-weight: 700;
-}
 
 .formulario {
   display: grid;
@@ -406,24 +385,10 @@ onMounted(() => {
   color: #32464d;
 }
 
-input,
-select,
-textarea {
-  width: 100%;
-  border: 1px solid #c7d8de;
-  border-radius: 0.55rem;
-  padding: 0.65rem 0.7rem;
-  font: inherit;
-}
-
 .campo-checkbox {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-}
-
-.campo-checkbox input {
-  width: auto;
 }
 
 .acciones-formulario {
@@ -586,3 +551,5 @@ thead th {
   }
 }
 </style>
+
+

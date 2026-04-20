@@ -5,7 +5,6 @@
         <div class="cabecera-panel">
           <div>
             <h3>Crear cliente</h3>
-            <p class="texto-ayuda">Cada cliente debe quedar asociado a una tarifa.</p>
           </div>
         </div>
 
@@ -75,9 +74,6 @@
                 {{ cargandoCodigoPostal ? 'Buscando...' : 'Completar' }}
               </button>
             </div>
-            <small class="texto-ayuda-inline">
-              Introduce 5 digitos y se completaran provincia y ciudad.
-            </small>
           </label>
 
           <datalist id="lista-ciudades-cp">
@@ -116,9 +112,7 @@
         <div class="cabecera-panel">
           <div>
             <h3>Clientes registrados</h3>
-            <p class="texto-ayuda">Listado de clientes con su tarifa asociada.</p>
           </div>
-          <span class="contador-panel">{{ clientes.length }}</span>
         </div>
 
         <article v-if="alertaSuccess" class="alerta alerta-success">
@@ -351,22 +345,6 @@ onMounted(() => {
   color: #114b5f;
 }
 
-.texto-ayuda {
-  margin: 0.35rem 0 0;
-  color: #4d626a;
-}
-
-.contador-panel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e5eff2;
-  color: #114b5f;
-  font-weight: 700;
-}
 
 .formulario {
   display: grid;
@@ -385,22 +363,9 @@ onMounted(() => {
   gap: 0.7rem;
 }
 
-input,
-select {
-  width: 100%;
-  border: 1px solid #c7d8de;
-  border-radius: 0.55rem;
-  padding: 0.65rem 0.7rem;
-  font: inherit;
-}
-
 .campo-cp {
   display: flex;
   gap: 0.55rem;
-}
-
-.campo-cp input {
-  flex: 1;
 }
 
 .boton-cp {
@@ -418,18 +383,10 @@ select {
   cursor: not-allowed;
 }
 
-.texto-ayuda-inline {
-  color: #607077;
-}
-
 .campo-checkbox {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-}
-
-.campo-checkbox input {
-  width: auto;
 }
 
 .acciones-formulario {
@@ -531,3 +488,4 @@ td {
   }
 }
 </style>
+

@@ -5,7 +5,6 @@
         <div class="cabecera-panel">
           <div>
             <h3>Crear familia</h3>
-            <p class="texto-ayuda">Las familias organizan el catalogo y sirven para seccionar articulos.</p>
           </div>
         </div>
 
@@ -45,9 +44,7 @@
         <div class="cabecera-panel">
           <div>
             <h3>Familias disponibles</h3>
-            <p class="texto-ayuda">Cada familia muestra el numero de articulos asociados.</p>
           </div>
-          <span class="contador-panel">{{ familias.length }}</span>
         </div>
 
         <article v-if="alertaSuccess" class="alerta alerta-success">
@@ -71,7 +68,6 @@
               <span class="etiqueta-tipo">{{ familia.tipo }}</span>
               <p>{{ familia.descripcion || 'Sin descripcion' }}</p>
             </div>
-            <span class="badge-total">{{ familia.total_articulos }}</span>
           </li>
           <li v-if="familias.length === 0" class="sin-resultados">
             No hay familias creadas.
@@ -191,23 +187,6 @@ onMounted(() => {
   color: #114b5f;
 }
 
-.texto-ayuda {
-  margin: 0.35rem 0 0;
-  color: #4d626a;
-}
-
-.contador-panel,
-.badge-total {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e5eff2;
-  color: #114b5f;
-  font-weight: 700;
-}
 
 .formulario {
   display: grid;
@@ -218,16 +197,6 @@ onMounted(() => {
   display: grid;
   gap: 0.35rem;
   color: #32464d;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  border: 1px solid #c7d8de;
-  border-radius: 0.55rem;
-  padding: 0.65rem 0.7rem;
-  font: inherit;
 }
 
 .acciones-formulario {
@@ -344,3 +313,4 @@ textarea {
   }
 }
 </style>
+

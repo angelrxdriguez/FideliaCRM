@@ -29,7 +29,6 @@
         <div>
           <p class="etiqueta-panel">Base de datos</p>
           <h3>{{ conexion.baseDeDatos || 'fidelia' }}</h3>
-          <p class="texto-ayuda">Estado actual del acceso a MySQL desde la API local.</p>
         </div>
         <span class="badge-conexion" :class="conexionActiva ? 'ok' : 'ko'">
           {{ conexionActiva ? 'conectado' : 'sin conexion' }}
@@ -68,9 +67,7 @@
         <div class="cabecera-panel">
           <div>
             <h3>Ultimos articulos</h3>
-            <p class="texto-ayuda">Consulta directa desde MySQL.</p>
           </div>
-          <span class="contador-panel">{{ articulos.length }}</span>
         </div>
 
         <div v-if="cargando" class="estado-carga">Cargando datos...</div>
@@ -113,7 +110,6 @@
         <article class="panel-tabla">
           <div class="cabecera-panel">
             <h3>Familias</h3>
-            <span class="contador-panel">{{ familias.length }}</span>
           </div>
 
           <ul class="lista-simple">
@@ -131,7 +127,6 @@
         <article class="panel-tabla">
           <div class="cabecera-panel">
             <h3>Usuarios</h3>
-            <span class="contador-panel">{{ usuarios.length }}</span>
           </div>
 
           <ul class="lista-simple">
@@ -294,10 +289,6 @@ onMounted(() => {
   color: #6a7b81;
 }
 
-.texto-ayuda {
-  margin: 0.35rem 0 0;
-  color: #4d626a;
-}
 
 .badge-conexion {
   display: inline-flex;
@@ -367,17 +358,6 @@ onMounted(() => {
   margin-bottom: 0.9rem;
 }
 
-.contador-panel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e5eff2;
-  color: #114b5f;
-  font-weight: 700;
-}
 
 .estado-carga {
   padding: 1.2rem 0;
@@ -528,3 +508,5 @@ thead th {
   }
 }
 </style>
+
+

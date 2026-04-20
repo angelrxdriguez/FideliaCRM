@@ -9,7 +9,6 @@
           <div>
             <p class="eyebrow">Perfil</p>
             <h3>{{ usuario.nombre_completo }}</h3>
-            <p class="texto-ayuda">Informacion de la sesion actual dentro de Fidelia CRM.</p>
           </div>
         </div>
 
@@ -114,10 +113,6 @@ const iniciales = computed(() =>
   color: #114b5f;
 }
 
-.texto-ayuda {
-  margin: 0.4rem 0 0;
-  color: #4d626a;
-}
 
 .datos-perfil {
   display: grid;
@@ -174,3 +169,4 @@ const iniciales = computed(() =>
   }
 }
 </style>
+

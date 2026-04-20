@@ -5,7 +5,6 @@
         <div class="cabecera-panel">
           <div>
             <h3>Crear tipo de familia</h3>
-            <p class="texto-ayuda">Define las clasificaciones base que luego se asignan al crear cada familia.</p>
           </div>
         </div>
 
@@ -35,9 +34,7 @@
         <div class="cabecera-panel">
           <div>
             <h3>Tipos disponibles</h3>
-            <p class="texto-ayuda">Cada tipo muestra cuantas familias lo tienen asignado.</p>
           </div>
-          <span class="contador-panel">{{ tiposFamilia.length }}</span>
         </div>
 
         <article v-if="alertaSuccess" class="alerta alerta-success">
@@ -56,7 +53,6 @@
               <strong>{{ tipo.nombre }}</strong>
               <p>{{ tipo.descripcion || 'Sin descripcion' }}</p>
             </div>
-            <span class="badge-total">{{ tipo.total_familias }}</span>
           </li>
           <li v-if="tiposFamilia.length === 0" class="sin-resultados">
             No hay tipos de familia creados.
@@ -157,23 +153,7 @@ onMounted(() => {
   color: #114b5f;
 }
 
-.texto-ayuda {
-  margin: 0.35rem 0 0;
-  color: #4d626a;
-}
 
-.contador-panel,
-.badge-total {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e5eff2;
-  color: #114b5f;
-  font-weight: 700;
-}
 
 .formulario {
   display: grid;
@@ -184,15 +164,6 @@ onMounted(() => {
   display: grid;
   gap: 0.35rem;
   color: #32464d;
-}
-
-input,
-textarea {
-  width: 100%;
-  border: 1px solid #c7d8de;
-  border-radius: 0.55rem;
-  padding: 0.65rem 0.7rem;
-  font: inherit;
 }
 
 .acciones-formulario {
@@ -298,3 +269,5 @@ textarea {
   }
 }
 </style>
+
+

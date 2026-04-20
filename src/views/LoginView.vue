@@ -6,9 +6,6 @@
         <div>
           <p class="eyebrow">Acceso restringido</p>
           <h1>Entrar en Fidelia CRM</h1>
-          <p class="texto-ayuda">
-            Introduce tu correo y password para acceder a la aplicacion.
-          </p>
         </div>
       </div>
 
@@ -42,10 +39,8 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { enviar } from '../servicios/api'
 
 const emit = defineEmits(['autenticado'])
-
 const cargando = ref(false)
 const error = ref('')
 
@@ -54,26 +49,13 @@ const formulario = reactive({
   password: '',
 })
 
-async function iniciarSesion() {
-  cargando.value = true
-  error.value = ''
-
-  try {
-    const payload = await enviar(
-      '/api/auth/login',
-      {
-        correo: formulario.correo,
-        password: formulario.password,
-      },
-      'No se pudo iniciar sesion.'
-    )
-
-    emit('autenticado', payload.usuario)
-  } catch (loginError) {
-    error.value = loginError.message
-  } finally {
-    cargando.value = false
-  }
+function iniciarSesion() {
+  emit('autenticado', {
+    id: 0,
+    nombre_completo: 'Acceso sin validacion',
+    correo: formulario.correo || 'invitado@local',
+    rol: 'Invitado',
+  })
 }
 </script>
 
@@ -132,10 +114,6 @@ async function iniciarSesion() {
   font-size: 1.8rem;
 }
 
-.texto-ayuda {
-  margin: 0.45rem 0 0;
-  color: #4d626a;
-}
 
 .formulario-login {
   display: grid;
@@ -146,14 +124,6 @@ async function iniciarSesion() {
   display: grid;
   gap: 0.35rem;
   color: #32464d;
-}
-
-input {
-  width: 100%;
-  border: 1px solid #c7d8de;
-  border-radius: 0.6rem;
-  padding: 0.72rem 0.78rem;
-  font: inherit;
 }
 
 .boton-principal {
@@ -190,3 +160,4 @@ input {
   color: #8f2623;
 }
 </style>
+
