@@ -4,7 +4,7 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Crear usuario</h3>
+            <h3>{{ usuarioEditandoId ? 'Editar usuario' : 'Crear usuario' }}</h3>
           </div>
         </div>
 
@@ -30,16 +30,22 @@
           </label>
 
           <label>
-            Contraseña
-            <input v-model="formulario.password" type="password" minlength="6" required />
+            Contrasena
+            <input
+              v-model="formulario.password"
+              type="password"
+              minlength="6"
+              :required="!usuarioEditandoId"
+              :placeholder="usuarioEditandoId ? 'Dejar vacio para mantener la actual' : ''"
+            />
           </label>
 
           <div class="acciones-formulario">
             <button type="submit" class="boton-principal" :disabled="guardando">
-              {{ guardando ? 'Guardando...' : 'Crear usuario' }}
+              {{ guardando ? 'Guardando...' : usuarioEditandoId ? 'Guardar cambios' : 'Crear usuario' }}
             </button>
             <button type="button" class="boton-secundario" @click="reiniciarFormulario">
-              Limpiar
+              {{ usuarioEditandoId ? 'Cancelar edicion' : 'Limpiar' }}
             </button>
           </div>
         </form>
@@ -68,6 +74,7 @@
               <th>Nombre</th>
               <th>Correo</th>
               <th>Rol</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -75,9 +82,12 @@
               <td>{{ usuario.nombre_completo }}</td>
               <td>{{ usuario.correo }}</td>
               <td>{{ usuario.rol || 'Sin rol' }}</td>
+              <td>
+                <button type="button" class="boton-tabla" @click="editarUsuario(usuario)">Editar</button>
+              </td>
             </tr>
             <tr v-if="usuarios.length === 0">
-              <td colspan="3" class="sin-resultados">No hay usuarios cargados.</td>
+              <td colspan="4" class="sin-resultados">No hay usuarios cargados.</td>
             </tr>
           </tbody>
         </table>
@@ -88,7 +98,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { enviar, obtener } from '../../servicios/api'
+import { actualizar, enviar, obtener } from '../../servicios/api'
 
 const cargando = ref(false)
 const guardando = ref(false)
@@ -96,6 +106,7 @@ const alertaSuccess = ref('')
 const alertaDanger = ref('')
 const usuarios = ref([])
 const roles = ref([])
+const usuarioEditandoId = ref(null)
 
 const formulario = reactive({
   rol_id: '',
@@ -110,9 +121,19 @@ function limpiarAlertas() {
 }
 
 function reiniciarFormulario() {
+  usuarioEditandoId.value = null
   formulario.rol_id = ''
   formulario.nombre_completo = ''
   formulario.correo = ''
+  formulario.password = ''
+}
+
+function editarUsuario(usuario) {
+  limpiarAlertas()
+  usuarioEditandoId.value = usuario.id
+  formulario.rol_id = usuario.rol_id ? String(usuario.rol_id) : ''
+  formulario.nombre_completo = usuario.nombre_completo || ''
+  formulario.correo = usuario.correo || ''
   formulario.password = ''
 }
 
@@ -143,15 +164,19 @@ async function guardarUsuario() {
   limpiarAlertas()
 
   try {
-    await enviar(
-      '/api/usuarios',
-      {
-        ...formulario,
-        rol_id: formulario.rol_id ? Number(formulario.rol_id) : null,
-      },
-      'No se pudo crear el usuario.'
-    )
-    alertaSuccess.value = 'Usuario creado correctamente con password hasheada.'
+    const payload = {
+      ...formulario,
+      rol_id: formulario.rol_id ? Number(formulario.rol_id) : null,
+    }
+
+    if (usuarioEditandoId.value) {
+      await actualizar(`/api/usuarios/${usuarioEditandoId.value}`, payload, 'No se pudo actualizar el usuario.')
+      alertaSuccess.value = 'Usuario actualizado correctamente.'
+    } else {
+      await enviar('/api/usuarios', payload, 'No se pudo crear el usuario.')
+      alertaSuccess.value = 'Usuario creado correctamente con password hasheada.'
+    }
+
     reiniciarFormulario()
     await Promise.all([cargarUsuarios(), cargarRoles()])
   } catch (error) {
@@ -196,7 +221,6 @@ onMounted(() => {
   margin: 0;
   color: #114b5f;
 }
-
 
 .formulario {
   display: grid;
@@ -256,6 +280,26 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.boton-tabla {
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid #114b5f;
+  background: #ffffff;
+  color: #114b5f;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.boton-tabla:hover {
+  background: #f1f7f9;
+  color: #0d3c4c;
+  transform: translateY(-1px);
+}
+
 .alerta {
   border-radius: 0.75rem;
   padding: 0.8rem 0.9rem;
@@ -309,4 +353,3 @@ thead th {
   }
 }
 </style>
-

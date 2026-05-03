@@ -50,6 +50,7 @@
 import { computed, ref } from 'vue'
 import ArticulosPagina from '../components/paginas/ArticulosPagina.vue'
 import ClientesPagina from '../components/paginas/ClientesPagina.vue'
+import EmpresaPagina from '../components/paginas/EmpresaPagina.vue'
 import FamiliasPagina from '../components/paginas/FamiliasPagina.vue'
 import InicioPagina from '../components/paginas/InicioPagina.vue'
 import PerfilPagina from '../components/paginas/PerfilPagina.vue'
@@ -77,6 +78,11 @@ const paginas = [
     id: 'perfil',
     nombre: 'Perfil',
     componente: PerfilPagina,
+  },
+  {
+    id: 'configuracion-empresa',
+    nombre: 'Configuracion empresa',
+    componente: EmpresaPagina,
   },
   {
     id: 'tarifas',

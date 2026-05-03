@@ -66,7 +66,19 @@ CREATE TABLE tarifas (
     porcentaje_beneficio DECIMAL(5,2) NOT NULL,
     activa TINYINT(1) DEFAULT 1
 );
-
+CREATE TABLE IF NOT EXISTS empresa (
+  id INT PRIMARY KEY,
+  nombre_comercial VARCHAR(150) NULL,
+  razon_social VARCHAR(150) NULL,
+  cif VARCHAR(20) NULL,
+  telefono VARCHAR(30) NULL,
+  email VARCHAR(150) NULL,
+  direccion_fiscal VARCHAR(255) NULL,
+  direccion_social VARCHAR(255) NULL,
+  ciudad VARCHAR(100) NULL,
+  provincia VARCHAR(100) NULL,
+  codigo_postal VARCHAR(10) NULL,
+);
 CREATE TABLE clientes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL,
@@ -83,15 +95,5 @@ CREATE TABLE clientes (
     id_tarifa INT NOT NULL,
     id_comercial INT NULL,
     activo TINYINT(1) DEFAULT 1,
-    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_clientes_tarifa (id_tarifa),
-    INDEX idx_clientes_comercial (id_comercial),
-    CONSTRAINT fk_clientes_tarifas
-        FOREIGN KEY (id_tarifa) REFERENCES tarifas(id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-    CONSTRAINT fk_clientes_comercial
-        FOREIGN KEY (id_comercial) REFERENCES usuarios(id)
-        ON UPDATE CASCADE
-        ON DELETE SET NULL
+    fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
 );

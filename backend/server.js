@@ -298,6 +298,119 @@ app.post('/api/usuarios', async (req, res) => {
   }
 })
 
+app.put('/api/usuarios/:id', async (req, res) => {
+  const usuarioId = Number(req.params.id)
+  const { rol_id, nombre_completo, correo, password } = req.body
+  const nombreNormalizado = typeof nombre_completo === 'string' ? nombre_completo.trim() : ''
+  const correoNormalizado = typeof correo === 'string' ? correo.trim().toLowerCase() : ''
+  const rolIdNormalizado = rol_id ? Number(rol_id) : null
+
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0 || !nombreNormalizado || !correoNormalizado) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El usuario, nombre y correo son obligatorios.',
+    })
+  }
+
+  try {
+    const [usuarios] = await pool.query(
+      `
+        SELECT id
+        FROM usuarios
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [usuarioId]
+    )
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'El usuario indicado no existe.',
+      })
+    }
+
+    if (rolIdNormalizado !== null) {
+      const [roles] = await pool.query(
+        `
+          SELECT id
+          FROM roles_usuarios
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [rolIdNormalizado]
+      )
+
+      if (roles.length === 0) {
+        return res.status(404).json({
+          ok: false,
+          mensaje: 'El rol indicado no existe.',
+        })
+      }
+    }
+
+    const passwordNormalizada = typeof password === 'string' ? password.trim() : ''
+
+    if (passwordNormalizada) {
+      const passwordHash = await bcrypt.hash(passwordNormalizada, 12)
+
+      await pool.query(
+        `
+          UPDATE usuarios
+          SET
+            rol_id = ?,
+            nombre_completo = ?,
+            correo = ?,
+            password = ?
+          WHERE id = ?
+        `,
+        [rolIdNormalizado, nombreNormalizado, correoNormalizado, passwordHash, usuarioId]
+      )
+    } else {
+      await pool.query(
+        `
+          UPDATE usuarios
+          SET
+            rol_id = ?,
+            nombre_completo = ?,
+            correo = ?
+          WHERE id = ?
+        `,
+        [rolIdNormalizado, nombreNormalizado, correoNormalizado, usuarioId]
+      )
+    }
+
+    let rol = null
+
+    if (rolIdNormalizado !== null) {
+      const [roles] = await pool.query(
+        `
+          SELECT nombre
+          FROM roles_usuarios
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [rolIdNormalizado]
+      )
+      rol = roles[0]?.nombre || null
+    }
+
+    return res.json({
+      ok: true,
+      mensaje: 'Usuario actualizado correctamente.',
+      usuario: {
+        id: usuarioId,
+        rol_id: rolIdNormalizado,
+        rol,
+        nombre_completo: nombreNormalizado,
+        correo: correoNormalizado,
+      },
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudo actualizar el usuario.')
+  }
+})
+
 app.get('/api/roles-usuarios', async (_req, res) => {
   try {
     const [roles] = await pool.query(
@@ -353,6 +466,270 @@ app.post('/api/roles-usuarios', async (req, res) => {
     })
   } catch (error) {
     enviarError(res, error, 'No se pudo crear el rol de usuario.')
+  }
+})
+
+const camposEmpresa = [
+  'nombre_comercial',
+  'razon_social',
+  'cif',
+  'telefono',
+  'email',
+  'web',
+  'direccion_fiscal',
+  'direccion_social',
+  'ciudad',
+  'provincia',
+  'codigo_postal',
+  'pais',
+]
+
+const tablasEmpresaCandidatas = [
+  'parametros_empresa',
+  'empresa_parametros',
+  'configuracion_empresa',
+  'empresa_configuracion',
+  'datos_empresa',
+]
+
+const aliasCamposEmpresa = {
+  nombre_comercial: ['nombre_comercial', 'nombre_empresa', 'nombre'],
+  razon_social: ['razon_social'],
+  cif: ['cif', 'nif'],
+  telefono: ['telefono', 'telefono_principal'],
+  email: ['email', 'correo'],
+  web: ['web', 'sitio_web'],
+  direccion_fiscal: ['direccion_fiscal', 'direccion'],
+  direccion_social: ['direccion_social', 'direccion'],
+  ciudad: ['ciudad'],
+  provincia: ['provincia'],
+  codigo_postal: ['codigo_postal', 'cp'],
+  pais: ['pais'],
+}
+
+function normalizarTexto(valor) {
+  if (typeof valor !== 'string') {
+    return null
+  }
+
+  const normalizado = valor.trim()
+  return normalizado || null
+}
+
+function escaparIdentificador(identificador) {
+  return `\`${String(identificador || '').replace(/`/g, '')}\``
+}
+
+async function obtenerDefinicionTablaEmpresa() {
+  const placeholders = tablasEmpresaCandidatas.map(() => '?').join(', ')
+
+  const [tablas] = await pool.query(
+    `
+      SELECT TABLE_NAME
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME IN (${placeholders})
+    `,
+    [configuracionConexion.database, ...tablasEmpresaCandidatas]
+  )
+
+  if (tablas.length === 0) {
+    return null
+  }
+
+  const nombresTablas = tablas.map((item) => item.TABLE_NAME)
+  const nombreTabla =
+    tablasEmpresaCandidatas.find((nombreCandidata) => nombresTablas.includes(nombreCandidata)) || nombresTablas[0]
+
+  const [columnas] = await pool.query(
+    `
+      SELECT COLUMN_NAME
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = ?
+    `,
+    [configuracionConexion.database, nombreTabla]
+  )
+
+  const columnasDisponibles = new Set(columnas.map((item) => item.COLUMN_NAME))
+  const mapaCampos = {}
+
+  for (const campo of camposEmpresa) {
+    const aliases = aliasCamposEmpresa[campo] || [campo]
+    const columnaDetectada = aliases.find((alias) => columnasDisponibles.has(alias))
+
+    if (columnaDetectada) {
+      mapaCampos[campo] = columnaDetectada
+    }
+  }
+
+  return {
+    nombreTabla,
+    columnasDisponibles,
+    mapaCampos,
+    tieneId: columnasDisponibles.has('id'),
+  }
+}
+
+app.get('/api/empresa-parametros', async (_req, res) => {
+  try {
+    const definicion = await obtenerDefinicionTablaEmpresa()
+
+    const baseVacia = {
+      id: 1,
+      nombre_comercial: '',
+      razon_social: '',
+      cif: '',
+      telefono: '',
+      email: '',
+      web: '',
+      direccion_fiscal: '',
+      direccion_social: '',
+      ciudad: '',
+      provincia: '',
+      codigo_postal: '',
+      pais: '',
+    }
+
+    if (!definicion) {
+      return res.json({
+        ok: true,
+        parametros: baseVacia,
+      })
+    }
+
+    const columnasSelect = []
+
+    if (definicion.tieneId) {
+      columnasSelect.push(`${escaparIdentificador('id')} AS id`)
+    }
+
+    for (const campo of camposEmpresa) {
+      const columna = definicion.mapaCampos[campo]
+      if (columna) {
+        columnasSelect.push(`${escaparIdentificador(columna)} AS ${escaparIdentificador(campo)}`)
+      }
+    }
+
+    if (columnasSelect.length === 0) {
+      return res.json({
+        ok: true,
+        parametros: baseVacia,
+      })
+    }
+
+    const consulta = `
+      SELECT ${columnasSelect.join(', ')}
+      FROM ${escaparIdentificador(definicion.nombreTabla)}
+      ${definicion.tieneId ? 'WHERE id = 1' : ''}
+      LIMIT 1
+    `
+
+    const [filas] = await pool.query(consulta)
+    const fila = filas[0] || {}
+
+    return res.json({
+      ok: true,
+      parametros: {
+        ...baseVacia,
+        ...fila,
+      },
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudieron obtener los parametros de empresa.')
+  }
+})
+
+app.put('/api/empresa-parametros', async (req, res) => {
+  try {
+    const definicion = await obtenerDefinicionTablaEmpresa()
+
+    if (!definicion) {
+      return res.status(409).json({
+        ok: false,
+        mensaje: 'No existe la tabla de parametros de empresa en la base de datos.',
+      })
+    }
+
+    const datosNormalizados = {}
+
+    for (const campo of camposEmpresa) {
+      datosNormalizados[campo] = normalizarTexto(req.body?.[campo])
+    }
+
+    const valoresPorColumna = new Map()
+
+    for (const campo of camposEmpresa) {
+      const columna = definicion.mapaCampos[campo]
+      if (!columna) {
+        continue
+      }
+
+      const valor = datosNormalizados[campo]
+      if (!valoresPorColumna.has(columna)) {
+        valoresPorColumna.set(columna, valor)
+        continue
+      }
+
+      if (valoresPorColumna.get(columna) === null && valor !== null) {
+        valoresPorColumna.set(columna, valor)
+      }
+    }
+
+    const columnasFisicas = [...valoresPorColumna.keys()]
+
+    if (columnasFisicas.length > 0) {
+      if (definicion.tieneId) {
+        const columnasInsert = ['id', ...columnasFisicas]
+        const placeholders = columnasInsert.map(() => '?').join(', ')
+        const updates = columnasFisicas
+          .map((columna) => `${escaparIdentificador(columna)} = VALUES(${escaparIdentificador(columna)})`)
+          .join(', ')
+
+        const consulta = `
+          INSERT INTO ${escaparIdentificador(definicion.nombreTabla)} (${columnasInsert
+            .map((columna) => escaparIdentificador(columna))
+            .join(', ')})
+          VALUES (${placeholders})
+          ON DUPLICATE KEY UPDATE ${updates}
+        `
+
+        await pool.query(consulta, [1, ...columnasFisicas.map((columna) => valoresPorColumna.get(columna))])
+      } else {
+        const setClause = columnasFisicas
+          .map((columna) => `${escaparIdentificador(columna)} = ?`)
+          .join(', ')
+        const valores = columnasFisicas.map((columna) => valoresPorColumna.get(columna))
+        const consultaUpdate = `
+          UPDATE ${escaparIdentificador(definicion.nombreTabla)}
+          SET ${setClause}
+          LIMIT 1
+        `
+
+        const [resultadoUpdate] = await pool.query(consultaUpdate, valores)
+
+        if (resultadoUpdate.affectedRows === 0) {
+          const consultaInsert = `
+            INSERT INTO ${escaparIdentificador(definicion.nombreTabla)} (${columnasFisicas
+              .map((columna) => escaparIdentificador(columna))
+              .join(', ')})
+            VALUES (${columnasFisicas.map(() => '?').join(', ')})
+          `
+          await pool.query(consultaInsert, valores)
+        }
+      }
+    }
+
+    return res.json({
+      ok: true,
+      mensaje: 'Parametros de empresa actualizados correctamente.',
+      parametros: {
+        id: 1,
+        ...datosNormalizados,
+      },
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudieron guardar los parametros de empresa.')
   }
 })
 
