@@ -859,14 +859,24 @@ app.get('/api/clientes', async (_req, res) => {
         SELECT
           c.id,
           c.nombre,
+          c.nombre_fiscal,
           c.cif,
           c.telefono,
           c.email,
+          c.direccion,
+          c.ciudad,
+          c.provincia,
+          c.codigo_postal,
+          c.latitud,
+          c.longitud,
           c.id_tarifa,
+          c.id_comercial,
           c.activo,
-          t.nombre AS tarifa
+          t.nombre AS tarifa,
+          u.nombre_completo AS comercial
         FROM clientes c
         INNER JOIN tarifas t ON t.id = c.id_tarifa
+        LEFT JOIN usuarios u ON u.id = c.id_comercial
         ORDER BY c.id DESC
       `
     )
@@ -877,6 +887,198 @@ app.get('/api/clientes', async (_req, res) => {
     })
   } catch (error) {
     enviarError(res, error, 'No se pudieron obtener los clientes.')
+  }
+})
+
+app.get('/api/clientes/comercial/:usuarioId', async (req, res) => {
+  const usuarioId = Number(req.params.usuarioId)
+
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El usuario indicado no es valido.',
+    })
+  }
+
+  try {
+    const [clientes] = await pool.query(
+      `
+        SELECT
+          c.id,
+          c.nombre,
+          c.nombre_fiscal,
+          c.cif,
+          c.telefono,
+          c.email,
+          c.direccion,
+          c.ciudad,
+          c.provincia,
+          c.codigo_postal,
+          c.latitud,
+          c.longitud,
+          c.id_tarifa,
+          c.id_comercial,
+          c.activo,
+          t.nombre AS tarifa
+        FROM clientes c
+        INNER JOIN tarifas t ON t.id = c.id_tarifa
+        WHERE c.id_comercial = ?
+        ORDER BY c.id DESC
+      `,
+      [usuarioId]
+    )
+
+    res.json({
+      ok: true,
+      clientes,
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudieron obtener los clientes del comercial.')
+  }
+})
+
+app.put('/api/clientes/:id', async (req, res) => {
+  const clienteId = Number(req.params.id)
+  const {
+    nombre,
+    nombre_fiscal,
+    cif,
+    telefono,
+    email,
+    direccion,
+    ciudad,
+    provincia,
+    codigo_postal,
+    latitud,
+    longitud,
+    id_tarifa,
+    id_comercial,
+    activo,
+  } = req.body
+
+  const tarifaId = Number(id_tarifa)
+  const comercialIdNormalizado =
+    id_comercial === null || id_comercial === undefined || id_comercial === '' ? null : Number(id_comercial)
+
+  if (!Number.isInteger(clienteId) || clienteId <= 0 || !nombre || !Number.isInteger(tarifaId) || tarifaId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El cliente, el nombre y la tarifa son obligatorios.',
+    })
+  }
+
+  if (comercialIdNormalizado !== null && (!Number.isInteger(comercialIdNormalizado) || comercialIdNormalizado <= 0)) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El comercial indicado no es valido.',
+    })
+  }
+
+  try {
+    const [clientes] = await pool.query(
+      `
+        SELECT id
+        FROM clientes
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [clienteId]
+    )
+
+    if (clientes.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'El cliente indicado no existe.',
+      })
+    }
+
+    const [tarifas] = await pool.query(
+      `
+        SELECT id, nombre
+        FROM tarifas
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [tarifaId]
+    )
+
+    if (tarifas.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'La tarifa indicada no existe.',
+      })
+    }
+
+    if (comercialIdNormalizado !== null) {
+      const [usuarios] = await pool.query(
+        `
+          SELECT id
+          FROM usuarios
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [comercialIdNormalizado]
+      )
+
+      if (usuarios.length === 0) {
+        return res.status(404).json({
+          ok: false,
+          mensaje: 'El comercial indicado no existe.',
+        })
+      }
+    }
+
+    await pool.query(
+      `
+        UPDATE clientes
+        SET
+          nombre = ?,
+          nombre_fiscal = ?,
+          cif = ?,
+          telefono = ?,
+          email = ?,
+          direccion = ?,
+          ciudad = ?,
+          provincia = ?,
+          codigo_postal = ?,
+          latitud = ?,
+          longitud = ?,
+          id_tarifa = ?,
+          id_comercial = ?,
+          activo = ?
+        WHERE id = ?
+      `,
+      [
+        nombre.trim(),
+        nombre_fiscal?.trim() || null,
+        cif?.trim() || null,
+        telefono?.trim() || null,
+        email?.trim() || null,
+        direccion?.trim() || null,
+        ciudad?.trim() || null,
+        provincia?.trim() || null,
+        codigo_postal?.trim() || null,
+        latitud !== '' && latitud !== null && latitud !== undefined ? Number(latitud) : null,
+        longitud !== '' && longitud !== null && longitud !== undefined ? Number(longitud) : null,
+        tarifaId,
+        comercialIdNormalizado,
+        activo ? 1 : 0,
+        clienteId,
+      ]
+    )
+
+    res.json({
+      ok: true,
+      mensaje: 'Cliente actualizado correctamente.',
+      cliente: {
+        id: clienteId,
+        nombre: nombre.trim(),
+        id_tarifa: tarifaId,
+        id_comercial: comercialIdNormalizado,
+      },
+    })
+  } catch (error) {
+    enviarError(res, error, 'No se pudo actualizar el cliente.')
   }
 })
 

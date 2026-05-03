@@ -13,3 +13,10 @@ CREATE TABLE IF NOT EXISTS empresa (
 );
 
 INSERT IGNORE INTO empresa (id) VALUES (1);
+
+ALTER TABLE clientes
+    ADD INDEX idx_clientes_comercial (id_comercial),
+    ADD CONSTRAINT fk_clientes_comercial
+        FOREIGN KEY (id_comercial) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL;

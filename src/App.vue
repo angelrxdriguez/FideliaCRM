@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import ComercialCRMView from './views/ComercialCRMView.vue'
 import FideliaCRMView from './views/FideliaCRMView.vue'
 import LoginView from './views/LoginView.vue'
 
@@ -20,7 +21,11 @@ function leerSesion() {
 
 const usuarioAutenticado = ref(leerSesion())
 
-const haySesion = computed(() => Boolean(usuarioAutenticado.value))
+const rolUsuario = computed(() => normalizarRol(usuarioAutenticado.value?.rol))
+const rolValido = computed(() => rolUsuario.value === 'administrador' || rolUsuario.value === 'comercial')
+const haySesion = computed(() => Boolean(usuarioAutenticado.value) && rolValido.value)
+const esComercial = computed(() => rolUsuario.value === 'comercial')
+const vistaAutenticada = computed(() => (esComercial.value ? ComercialCRMView : FideliaCRMView))
 
 function manejarAutenticacion(usuario) {
   usuarioAutenticado.value = usuario
@@ -31,9 +36,17 @@ function cerrarSesion() {
   usuarioAutenticado.value = null
   localStorage.removeItem(claveSesion)
 }
+
+function normalizarRol(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
 </script>
 
 <template>
   <LoginView v-if="!haySesion" @autenticado="manejarAutenticacion" />
-  <FideliaCRMView v-else :usuario="usuarioAutenticado" @cerrar-sesion="cerrarSesion" />
+  <component :is="vistaAutenticada" v-else :usuario="usuarioAutenticado" @cerrar-sesion="cerrarSesion" />
 </template>

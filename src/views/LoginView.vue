@@ -39,6 +39,7 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
+import { enviar } from '../servicios/api'
 
 const emit = defineEmits(['autenticado'])
 const cargando = ref(false)
@@ -49,13 +50,34 @@ const formulario = reactive({
   password: '',
 })
 
-function iniciarSesion() {
-  emit('autenticado', {
-    id: 0,
-    nombre_completo: 'Acceso sin validacion',
-    correo: formulario.correo || 'invitado@local',
-    rol: 'Invitado',
-  })
+function normalizarRol(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+async function iniciarSesion() {
+  cargando.value = true
+  error.value = ''
+
+  try {
+    const payload = await enviar('/api/auth/login', { ...formulario }, 'No se pudo iniciar sesion.')
+    const usuario = payload.usuario
+    const rol = normalizarRol(usuario?.rol)
+
+    if (rol !== 'administrador' && rol !== 'comercial') {
+      error.value = 'Tu usuario no tiene un rol autorizado para acceder al sistema.'
+      return
+    }
+
+    emit('autenticado', usuario)
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    cargando.value = false
+  }
 }
 </script>
 

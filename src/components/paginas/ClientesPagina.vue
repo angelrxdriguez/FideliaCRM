@@ -4,7 +4,7 @@
       <article class="panel">
         <div class="cabecera-panel">
           <div>
-            <h3>Crear cliente</h3>
+            <h3>{{ clienteEditandoId ? 'Editar cliente' : 'Crear cliente' }}</h3>
           </div>
         </div>
 
@@ -20,6 +20,16 @@
               <option value="">Selecciona una tarifa</option>
               <option v-for="tarifa in tarifas" :key="tarifa.id" :value="String(tarifa.id)">
                 {{ tarifa.nombre }} ({{ formatearPorcentaje(tarifa.porcentaje_beneficio) }})
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Comercial
+            <select v-model="formulario.id_comercial">
+              <option value="">Sin comercial</option>
+              <option v-for="usuario in usuarios" :key="usuario.id" :value="String(usuario.id)">
+                {{ usuario.nombre_completo }}
               </option>
             </select>
           </label>
@@ -99,10 +109,10 @@
 
           <div class="acciones-formulario">
             <button type="submit" class="boton-principal" :disabled="guardando || tarifas.length === 0">
-              {{ guardando ? 'Guardando...' : 'Crear cliente' }}
+              {{ guardando ? 'Guardando...' : clienteEditandoId ? 'Guardar cambios' : 'Crear cliente' }}
             </button>
             <button type="button" class="boton-secundario" @click="reiniciarFormulario">
-              Limpiar
+              {{ clienteEditandoId ? 'Cancelar edicion' : 'Limpiar' }}
             </button>
           </div>
         </form>
@@ -133,7 +143,9 @@
               <th>Telefono</th>
               <th>Email</th>
               <th>Tarifa</th>
+              <th>Comercial</th>
               <th>Estado</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -143,14 +155,20 @@
               <td>{{ cliente.telefono || '-' }}</td>
               <td>{{ cliente.email || '-' }}</td>
               <td>{{ cliente.tarifa }}</td>
+              <td>{{ cliente.comercial || '-' }}</td>
               <td>
                 <span class="badge-estado" :class="cliente.activo ? 'estado-activo' : 'estado-bloqueado'">
                   {{ cliente.activo ? 'activo' : 'inactivo' }}
                 </span>
               </td>
+              <td>
+                <button type="button" class="boton-tabla" @click="editarCliente(cliente)">
+                  Editar
+                </button>
+              </td>
             </tr>
             <tr v-if="clientes.length === 0">
-              <td colspan="6" class="sin-resultados">No hay clientes creados.</td>
+              <td colspan="8" class="sin-resultados">No hay clientes creados.</td>
             </tr>
           </tbody>
         </table>
@@ -161,7 +179,7 @@
 
 <script setup>
 import { onMounted, reactive, ref, watch } from 'vue'
-import { enviar, obtener } from '../../servicios/api'
+import { actualizar, enviar, obtener } from '../../servicios/api'
 
 const cargando = ref(false)
 const guardando = ref(false)
@@ -169,6 +187,8 @@ const alertaSuccess = ref('')
 const alertaDanger = ref('')
 const clientes = ref([])
 const tarifas = ref([])
+const usuarios = ref([])
+const clienteEditandoId = ref(null)
 const cargandoCodigoPostal = ref(false)
 const ciudadesSugeridas = ref([])
 let temporizadorCodigoPostal = null
@@ -200,6 +220,7 @@ function formatearPorcentaje(valor) {
 }
 
 function reiniciarFormulario() {
+  clienteEditandoId.value = null
   formulario.nombre = ''
   formulario.nombre_fiscal = ''
   formulario.cif = ''
@@ -239,23 +260,55 @@ async function cargarTarifas() {
   }
 }
 
+async function cargarUsuarios() {
+  try {
+    const payload = await obtener('/api/usuarios', 'No se pudieron cargar los usuarios.')
+    usuarios.value = payload.usuarios
+  } catch (error) {
+    alertaDanger.value = error.message
+  }
+}
+
+function editarCliente(cliente) {
+  limpiarAlertas()
+  clienteEditandoId.value = cliente.id
+  formulario.nombre = cliente.nombre || ''
+  formulario.nombre_fiscal = cliente.nombre_fiscal || ''
+  formulario.cif = cliente.cif || ''
+  formulario.telefono = cliente.telefono || ''
+  formulario.email = cliente.email || ''
+  formulario.direccion = cliente.direccion || ''
+  formulario.ciudad = cliente.ciudad || ''
+  formulario.provincia = cliente.provincia || ''
+  formulario.codigo_postal = cliente.codigo_postal || ''
+  formulario.latitud = cliente.latitud ?? ''
+  formulario.longitud = cliente.longitud ?? ''
+  formulario.id_tarifa = cliente.id_tarifa ? String(cliente.id_tarifa) : ''
+  formulario.id_comercial = cliente.id_comercial ? String(cliente.id_comercial) : ''
+  formulario.activo = Boolean(cliente.activo)
+}
+
 async function guardarCliente() {
   guardando.value = true
   limpiarAlertas()
 
   try {
-    await enviar(
-      '/api/clientes',
-      {
-        ...formulario,
-        id_tarifa: Number(formulario.id_tarifa),
-        id_comercial: formulario.id_comercial ? Number(formulario.id_comercial) : null,
-      },
-      'No se pudo crear el cliente.'
-    )
-    alertaSuccess.value = 'Cliente creado correctamente.'
+    const payload = {
+      ...formulario,
+      id_tarifa: Number(formulario.id_tarifa),
+      id_comercial: formulario.id_comercial ? Number(formulario.id_comercial) : null,
+    }
+
+    if (clienteEditandoId.value) {
+      await actualizar(`/api/clientes/${clienteEditandoId.value}`, payload, 'No se pudo actualizar el cliente.')
+      alertaSuccess.value = 'Cliente actualizado correctamente.'
+    } else {
+      await enviar('/api/clientes', payload, 'No se pudo crear el cliente.')
+      alertaSuccess.value = 'Cliente creado correctamente.'
+    }
+
     reiniciarFormulario()
-    await Promise.all([cargarClientes(), cargarTarifas()])
+    await Promise.all([cargarClientes(), cargarTarifas(), cargarUsuarios()])
   } catch (error) {
     alertaDanger.value = error.message
   } finally {
@@ -310,7 +363,7 @@ watch(
 )
 
 onMounted(() => {
-  Promise.all([cargarClientes(), cargarTarifas()])
+  Promise.all([cargarClientes(), cargarTarifas(), cargarUsuarios()])
 })
 </script>
 
@@ -400,6 +453,16 @@ onMounted(() => {
   padding: 0.7rem 1rem;
   border-radius: 0.6rem;
   border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.boton-tabla {
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid #114b5f;
+  background: #ffffff;
+  color: #114b5f;
+  font: inherit;
   cursor: pointer;
 }
 
