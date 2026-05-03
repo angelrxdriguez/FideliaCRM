@@ -50,30 +50,24 @@
             <input
               v-model.trim="filtroArticulo"
               type="text"
-              placeholder="Nombre, SKU o familia"
+              placeholder="Escribe al menos 3 letras"
             />
           </label>
 
-          <div class="fila-doble">
-            <label>
-              Articulo
-              <select v-model="nuevaLinea.articulo_id">
-                <option value="">Selecciona un articulo</option>
-                <option v-for="articulo in articulosFiltrados" :key="articulo.id" :value="String(articulo.id)">
-                  {{ construirNombreArticulo(articulo) }} · Stock {{ articulo.stock }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              Cantidad
-              <input v-model.number="nuevaLinea.cantidad" type="number" min="1" step="1" />
-            </label>
+          <div class="buscador-articulos">
+            <p v-if="filtroArticulo.trim().length < 3" class="sin-resultados">
+              Escribe al menos 3 letras para buscar articulos.
+            </p>
+            <ul v-else-if="articulosFiltrados.length > 0" class="lista-resultados">
+              <li v-for="articulo in articulosFiltrados" :key="articulo.id">
+                <span>{{ construirNombreArticulo(articulo) }} · SKU {{ articulo.sku || '-' }} · Stock {{ articulo.stock }}</span>
+                <button type="button" class="boton-tabla" @click="agregarLinea(articulo.id)">
+                  Agregar
+                </button>
+              </li>
+            </ul>
+            <p v-else class="sin-resultados">No se encontraron articulos con ese termino.</p>
           </div>
-
-          <button type="button" class="boton-secundario" @click="agregarLinea">
-            Agregar producto
-          </button>
 
           <table v-if="lineasVenta.length > 0">
             <thead>
@@ -185,11 +179,6 @@ const formulario = reactive({
   observaciones: '',
 })
 
-const nuevaLinea = reactive({
-  articulo_id: '',
-  cantidad: 1,
-})
-
 const clienteSeleccionado = computed(() =>
   clientes.value.find((cliente) => String(cliente.id) === formulario.id_cliente) || null
 )
@@ -199,8 +188,8 @@ const porcentajeTarifa = computed(() => Number(clienteSeleccionado.value?.porcen
 const articulosFiltrados = computed(() => {
   const termino = filtroArticulo.value.trim().toLowerCase()
 
-  if (!termino) {
-    return articulos.value
+  if (termino.length < 3) {
+    return []
   }
 
   return articulos.value.filter((articulo) => {
@@ -262,11 +251,9 @@ function reiniciarVenta() {
   formulario.observaciones = ''
   lineasVenta.value = []
   filtroArticulo.value = ''
-  nuevaLinea.articulo_id = ''
-  nuevaLinea.cantidad = 1
 }
 
-function agregarLinea() {
+function agregarLinea(articuloId) {
   limpiarAlertas()
 
   if (!formulario.id_cliente) {
@@ -274,22 +261,22 @@ function agregarLinea() {
     return
   }
 
-  const articuloId = Number(nuevaLinea.articulo_id)
-  const cantidad = Number(nuevaLinea.cantidad || 0)
+  const id = Number(articuloId)
+  const cantidad = 1
 
-  if (!Number.isInteger(articuloId) || articuloId <= 0 || !Number.isInteger(cantidad) || cantidad <= 0) {
-    alertaDanger.value = 'Selecciona un articulo y una cantidad valida.'
+  if (!Number.isInteger(id) || id <= 0) {
+    alertaDanger.value = 'Selecciona un articulo valido.'
     return
   }
 
-  const articulo = articulos.value.find((item) => item.id === articuloId)
+  const articulo = articulos.value.find((item) => item.id === id)
 
   if (!articulo) {
     alertaDanger.value = 'El articulo seleccionado no existe.'
     return
   }
 
-  const existente = lineasVenta.value.find((linea) => linea.articulo_id === articuloId)
+  const existente = lineasVenta.value.find((linea) => linea.articulo_id === id)
   const cantidadObjetivo = (existente?.cantidad || 0) + cantidad
 
   if (cantidadObjetivo > Number(articulo.stock || 0)) {
@@ -313,8 +300,7 @@ function agregarLinea() {
     })
   }
 
-  nuevaLinea.articulo_id = ''
-  nuevaLinea.cantidad = 1
+  filtroArticulo.value = ''
 }
 
 function actualizarCantidad(indice, valor) {
@@ -455,10 +441,32 @@ onMounted(() => {
   color: #40545b;
 }
 
-.fila-doble {
+.buscador-articulos {
+  border: 1px solid #d4e3e8;
+  border-radius: 0.7rem;
+  padding: 0.65rem;
+}
+
+.lista-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.7rem;
+  gap: 0.45rem;
+}
+
+.lista-resultados li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid #e2ecef;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.lista-resultados li span {
+  color: #32464d;
 }
 
 .totales {
@@ -516,7 +524,6 @@ td {
 }
 
 .boton-principal,
-.boton-secundario,
 .boton-tabla {
   padding: 0.65rem 0.9rem;
   border-radius: 0.55rem;
@@ -529,7 +536,6 @@ td {
   color: #f5fbfc;
 }
 
-.boton-secundario,
 .boton-tabla {
   background: #ffffff;
   color: #114b5f;
@@ -548,8 +554,9 @@ td {
 }
 
 @media (max-width: 760px) {
-  .fila-doble {
-    grid-template-columns: 1fr;
+  .lista-resultados li {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
