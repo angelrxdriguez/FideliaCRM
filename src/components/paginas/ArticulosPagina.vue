@@ -108,7 +108,7 @@
             <div class="titulo-familia">
               <div>
                 <h4>{{ familia.nombre }}</h4>
-                <span class="etiqueta-tipo">{{ familia.tipo }}</span>
+                <p class="tipo-familia">{{ familia.tipo }}</p>
                 <p>{{ familia.descripcion || 'Sin descripcion' }}</p>
               </div>
             </div>
@@ -184,9 +184,6 @@ const formulario = reactive({
   activo: true,
 })
 
-const totalArticulos = computed(() =>
-  familiasConArticulos.value.reduce((total, familia) => total + familia.articulos.length, 0)
-)
 const familiasFiltradas = computed(() =>
   familiasDisponibles.value.filter((familia) => String(familia.id_tipo) === formulario.id_tipo)
 )
@@ -362,18 +359,6 @@ onMounted(() => {
   color: #4d626a;
 }
 
-.etiqueta-tipo {
-  display: inline-flex;
-  margin-top: 0.45rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: #edf5f7;
-  color: #114b5f;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-
 .formulario {
   display: grid;
   gap: 0.8rem;
@@ -487,10 +472,7 @@ onMounted(() => {
 }
 
 .bloque-familia {
-  border: 1px solid #e2ecef;
-  border-radius: 0.9rem;
-  padding: 0.9rem;
-  background: #fbfdfd;
+  padding: 0;
 }
 
 .titulo-familia {
@@ -499,6 +481,11 @@ onMounted(() => {
   gap: 1rem;
   align-items: flex-start;
   margin-bottom: 0.85rem;
+}
+
+.tipo-familia {
+  margin: 0.35rem 0 0;
+  color: #114b5f;
 }
 
 table {

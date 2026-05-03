@@ -30,7 +30,7 @@
           </label>
 
           <label>
-            Password
+            Contraseña
             <input v-model="formulario.password" type="password" minlength="6" required />
           </label>
 

@@ -65,7 +65,7 @@
           <li v-for="familia in familias" :key="familia.id">
             <div>
               <strong>{{ familia.nombre }}</strong>
-              <span class="etiqueta-tipo">{{ familia.tipo }}</span>
+              <span>- {{ familia.tipo }}</span>
               <p>{{ familia.descripcion || 'Sin descripcion' }}</p>
             </div>
           </li>
@@ -289,17 +289,6 @@ onMounted(() => {
 .lista-familias p {
   margin: 0.25rem 0 0;
   color: #607077;
-}
-
-.etiqueta-tipo {
-  display: inline-flex;
-  margin-top: 0.45rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: #edf5f7;
-  color: #114b5f;
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .estado-carga,
