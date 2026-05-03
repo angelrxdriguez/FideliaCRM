@@ -26,6 +26,18 @@ function enviarError(res, error, mensajeBase) {
   })
 }
 
+function normalizarRolTexto(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function aCentimos(valor) {
+  return Math.round(Number(valor || 0) * 100)
+}
+
 async function obtenerTablasDisponibles() {
   const [tablasDisponibles] = await pool.query(
     `
@@ -934,6 +946,376 @@ app.get('/api/clientes/comercial/:usuarioId', async (req, res) => {
     })
   } catch (error) {
     enviarError(res, error, 'No se pudieron obtener los clientes del comercial.')
+  }
+})
+
+app.get('/api/ventas/comercial/:usuarioId/datos', async (req, res) => {
+  const usuarioId = Number(req.params.usuarioId)
+
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El usuario indicado no es valido.',
+    })
+  }
+
+  try {
+    const [usuarios] = await pool.query(
+      `
+        SELECT
+          u.id,
+          u.nombre_completo,
+          r.nombre AS rol
+        FROM usuarios u
+        LEFT JOIN roles_usuarios r ON r.id = u.rol_id
+        WHERE u.id = ?
+        LIMIT 1
+      `,
+      [usuarioId]
+    )
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'El usuario indicado no existe.',
+      })
+    }
+
+    if (normalizarRolTexto(usuarios[0].rol) !== 'comercial') {
+      return res.status(403).json({
+        ok: false,
+        mensaje: 'Solo los usuarios comerciales pueden registrar ventas.',
+      })
+    }
+
+    const [clientes] = await pool.query(
+      `
+        SELECT
+          c.id,
+          c.nombre,
+          c.cif,
+          c.telefono,
+          c.email,
+          c.id_tarifa,
+          t.nombre AS tarifa,
+          t.porcentaje_beneficio
+        FROM clientes c
+        INNER JOIN tarifas t ON t.id = c.id_tarifa
+        WHERE c.id_comercial = ?
+          AND c.activo = 1
+        ORDER BY c.nombre ASC
+      `,
+      [usuarioId]
+    )
+
+    const [articulos] = await pool.query(
+      `
+        SELECT
+          a.id,
+          a.nombre,
+          a.sku,
+          a.formato,
+          a.unidad_medida,
+          a.precio_base,
+          a.stock,
+          f.nombre AS familia
+        FROM articulos a
+        INNER JOIN familias f ON f.id = a.familia_id
+        WHERE a.activo = 1
+          AND a.stock > 0
+        ORDER BY f.nombre ASC, a.nombre ASC
+      `
+    )
+
+    const [ventasRecientes] = await pool.query(
+      `
+        SELECT
+          v.id,
+          v.fecha_venta,
+          v.subtotal_base,
+          v.total_venta,
+          v.porcentaje_beneficio,
+          c.nombre AS cliente
+        FROM ventas v
+        INNER JOIN clientes c ON c.id = v.id_cliente
+        WHERE v.id_comercial = ?
+        ORDER BY v.id DESC
+        LIMIT 20
+      `,
+      [usuarioId]
+    )
+
+    return res.json({
+      ok: true,
+      clientes,
+      articulos,
+      ventasRecientes,
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudieron cargar los datos para ventas.')
+  }
+})
+
+app.post('/api/ventas/comercial/:usuarioId', async (req, res) => {
+  const usuarioId = Number(req.params.usuarioId)
+  const idCliente = Number(req.body?.id_cliente)
+  const observaciones = typeof req.body?.observaciones === 'string' ? req.body.observaciones.trim() : ''
+  const lineasRecibidas = Array.isArray(req.body?.lineas) ? req.body.lineas : []
+
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El usuario indicado no es valido.',
+    })
+  }
+
+  if (!Number.isInteger(idCliente) || idCliente <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'Debes seleccionar un cliente valido.',
+    })
+  }
+
+  if (lineasRecibidas.length === 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'Debes agregar al menos un articulo a la venta.',
+    })
+  }
+
+  const mapaCantidades = new Map()
+
+  for (const linea of lineasRecibidas) {
+    const articuloId = Number(linea?.articulo_id)
+    const cantidad = Number(linea?.cantidad)
+
+    if (!Number.isInteger(articuloId) || articuloId <= 0 || !Number.isInteger(cantidad) || cantidad <= 0) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: 'Las lineas de venta no son validas.',
+      })
+    }
+
+    mapaCantidades.set(articuloId, (mapaCantidades.get(articuloId) || 0) + cantidad)
+  }
+
+  const articuloIds = [...mapaCantidades.keys()]
+
+  if (articuloIds.length === 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'Debes agregar al menos un articulo a la venta.',
+    })
+  }
+
+  const conexion = await pool.getConnection()
+
+  try {
+    await conexion.beginTransaction()
+
+    const rollbackYResponder = async (status, mensaje) => {
+      await conexion.rollback()
+      res.status(status).json({
+        ok: false,
+        mensaje,
+      })
+    }
+
+    const [usuarios] = await conexion.query(
+      `
+        SELECT
+          u.id,
+          u.nombre_completo,
+          r.nombre AS rol
+        FROM usuarios u
+        LEFT JOIN roles_usuarios r ON r.id = u.rol_id
+        WHERE u.id = ?
+        LIMIT 1
+      `,
+      [usuarioId]
+    )
+
+    if (usuarios.length === 0) {
+      await rollbackYResponder(404, 'El usuario indicado no existe.')
+      return
+    }
+
+    if (normalizarRolTexto(usuarios[0].rol) !== 'comercial') {
+      await rollbackYResponder(403, 'Solo los usuarios comerciales pueden registrar ventas.')
+      return
+    }
+
+    const [clientes] = await conexion.query(
+      `
+        SELECT
+          c.id,
+          c.nombre,
+          c.id_tarifa,
+          t.nombre AS tarifa,
+          t.porcentaje_beneficio
+        FROM clientes c
+        INNER JOIN tarifas t ON t.id = c.id_tarifa
+        WHERE c.id = ?
+          AND c.id_comercial = ?
+          AND c.activo = 1
+        LIMIT 1
+      `,
+      [idCliente, usuarioId]
+    )
+
+    if (clientes.length === 0) {
+      await rollbackYResponder(404, 'El cliente no existe o no pertenece a la cartera del comercial.')
+      return
+    }
+
+    const cliente = clientes[0]
+    const porcentajeBeneficio = Number(cliente.porcentaje_beneficio || 0)
+    const factorTarifa = 1 + porcentajeBeneficio / 100
+
+    const [articulos] = await conexion.query(
+      `
+        SELECT
+          id,
+          nombre,
+          sku,
+          formato,
+          precio_base,
+          stock,
+          activo
+        FROM articulos
+        WHERE id IN (?)
+        FOR UPDATE
+      `,
+      [articuloIds]
+    )
+
+    if (articulos.length !== articuloIds.length) {
+      await rollbackYResponder(404, 'Alguno de los articulos seleccionados no existe.')
+      return
+    }
+
+    const mapaArticulos = new Map(articulos.map((articulo) => [articulo.id, articulo]))
+    const detalleLineas = []
+    let subtotalBaseCentimos = 0
+    let totalVentaCentimos = 0
+
+    for (const [articuloId, cantidad] of mapaCantidades.entries()) {
+      const articulo = mapaArticulos.get(articuloId)
+
+      if (!articulo || !articulo.activo) {
+        await rollbackYResponder(409, 'Alguno de los articulos seleccionados no esta activo.')
+        return
+      }
+
+      const stockDisponible = Number(articulo.stock || 0)
+
+      if (stockDisponible < cantidad) {
+        await rollbackYResponder(409, `Stock insuficiente para "${articulo.nombre}". Disponible: ${stockDisponible}.`)
+        return
+      }
+
+      const precioBaseCentimos = aCentimos(articulo.precio_base)
+      const precioVentaCentimos = Math.round(precioBaseCentimos * factorTarifa)
+      const subtotalBaseLineaCentimos = precioBaseCentimos * cantidad
+      const subtotalVentaLineaCentimos = precioVentaCentimos * cantidad
+
+      subtotalBaseCentimos += subtotalBaseLineaCentimos
+      totalVentaCentimos += subtotalVentaLineaCentimos
+
+      detalleLineas.push({
+        articulo_id: articulo.id,
+        articulo: articulo.nombre,
+        sku: articulo.sku,
+        formato: articulo.formato,
+        cantidad,
+        precio_base_unitario: precioBaseCentimos / 100,
+        precio_venta_unitario: precioVentaCentimos / 100,
+        subtotal_base: subtotalBaseLineaCentimos / 100,
+        subtotal_venta: subtotalVentaLineaCentimos / 100,
+      })
+    }
+
+    const [resultadoVenta] = await conexion.query(
+      `
+        INSERT INTO ventas (
+          id_cliente,
+          id_comercial,
+          id_tarifa,
+          porcentaje_beneficio,
+          subtotal_base,
+          total_venta,
+          observaciones
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        cliente.id,
+        usuarioId,
+        cliente.id_tarifa,
+        porcentajeBeneficio,
+        (subtotalBaseCentimos / 100).toFixed(2),
+        (totalVentaCentimos / 100).toFixed(2),
+        observaciones || null,
+      ]
+    )
+
+    const ventaId = resultadoVenta.insertId
+
+    for (const linea of detalleLineas) {
+      await conexion.query(
+        `
+          INSERT INTO venta_detalles (
+            id_venta,
+            id_articulo,
+            cantidad,
+            precio_base_unitario,
+            precio_venta_unitario,
+            subtotal_base,
+            subtotal_venta
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          ventaId,
+          linea.articulo_id,
+          linea.cantidad,
+          linea.precio_base_unitario.toFixed(2),
+          linea.precio_venta_unitario.toFixed(2),
+          linea.subtotal_base.toFixed(2),
+          linea.subtotal_venta.toFixed(2),
+        ]
+      )
+
+      await conexion.query(
+        `
+          UPDATE articulos
+          SET stock = stock - ?
+          WHERE id = ?
+        `,
+        [linea.cantidad, linea.articulo_id]
+      )
+    }
+
+    await conexion.commit()
+
+    return res.status(201).json({
+      ok: true,
+      mensaje: 'Venta registrada correctamente.',
+      venta: {
+        id: ventaId,
+        cliente: cliente.nombre,
+        tarifa: cliente.tarifa,
+        porcentaje_beneficio: porcentajeBeneficio,
+        subtotal_base: subtotalBaseCentimos / 100,
+        total_venta: totalVentaCentimos / 100,
+        lineas: detalleLineas,
+      },
+    })
+  } catch (error) {
+    await conexion.rollback().catch(() => {})
+    return enviarError(res, error, 'No se pudo registrar la venta.')
+  } finally {
+    conexion.release()
   }
 })
 

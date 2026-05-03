@@ -49,6 +49,7 @@
 import { computed, ref } from 'vue'
 import ClientesComercialPagina from '../components/paginas/ClientesComercialPagina.vue'
 import PerfilPagina from '../components/paginas/PerfilPagina.vue'
+import VentasComercialPagina from '../components/paginas/VentasComercialPagina.vue'
 
 const props = defineProps({
   usuario: {
@@ -61,6 +62,11 @@ defineEmits(['cerrar-sesion'])
 
 const paginas = [
   {
+    id: 'ventas',
+    nombre: 'Ventas',
+    componente: VentasComercialPagina,
+  },
+  {
     id: 'mis-clientes',
     nombre: 'Mis clientes',
     componente: ClientesComercialPagina,
@@ -72,7 +78,7 @@ const paginas = [
   },
 ]
 
-const paginaActiva = ref('mis-clientes')
+const paginaActiva = ref('ventas')
 const paginasMenu = computed(() => paginas.filter((pagina) => pagina.id !== 'perfil'))
 const paginaActual = computed(
   () => paginas.find((pagina) => pagina.id === paginaActiva.value) || paginas[0]
