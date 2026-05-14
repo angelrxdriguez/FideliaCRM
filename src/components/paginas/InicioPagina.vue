@@ -1,14 +1,6 @@
 <template>
   <div class="contenedor-pagina">
     <section class="contenedor-alertas">
-      <article v-if="alertaSuccess" class="alerta alerta-success">
-        <div>
-          <strong>Conexion correcta</strong>
-          <p>{{ alertaSuccess }}</p>
-        </div>
-        <button type="button" class="cerrar-alerta" @click="alertaSuccess = ''">x</button>
-      </article>
-
       <article v-if="alertaDanger" class="alerta alerta-danger">
         <div>
           <strong>Error de conexion</strong>
@@ -16,12 +8,6 @@
         </div>
         <button type="button" class="cerrar-alerta" @click="alertaDanger = ''">x</button>
       </article>
-    </section>
-
-    <section class="barra-acciones">
-      <button type="button" class="boton-principal" @click="cargarInicio">
-        Actualizar resumen
-      </button>
     </section>
 
     <section class="bloque-estado">
@@ -149,7 +135,6 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { obtener } from '../../servicios/api'
 
 const cargando = ref(false)
-const alertaSuccess = ref('')
 const alertaDanger = ref('')
 const conexionActiva = ref(false)
 
@@ -171,7 +156,6 @@ const usuarios = ref([])
 const articulosActivos = computed(() => articulos.value.filter((articulo) => articulo.activo).length)
 
 function limpiarAlertas() {
-  alertaSuccess.value = ''
   alertaDanger.value = ''
 }
 
@@ -194,7 +178,6 @@ async function cargarInicio() {
     const payload = await obtener('/api/inicio', 'No se pudo cargar el inicio.')
     aplicarDatos(payload)
     conexionActiva.value = true
-    alertaSuccess.value = 'La portada se ha sincronizado con la base de datos fidelia.'
   } catch (error) {
     conexionActiva.value = false
     alertaDanger.value = error.message
@@ -221,13 +204,6 @@ onMounted(() => {
   gap: 1rem;
 }
 
-.barra-acciones {
-  display: flex;
-  gap: 0.7rem;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
 .contenedor-alertas {
   display: grid;
   gap: 0.75rem;
@@ -244,12 +220,6 @@ onMounted(() => {
 
 .alerta p {
   margin: 0.2rem 0 0;
-}
-
-.alerta-success {
-  background: #e7f7ec;
-  border: 1px solid #2f9e58;
-  color: #1f6d3d;
 }
 
 .alerta-danger {
@@ -440,44 +410,6 @@ thead th {
 .sin-resultados,
 .sin-resultados-lista {
   color: #607077;
-}
-
-.boton-principal,
-.boton-secundario {
-  padding: 0.7rem 1rem;
-  border-radius: 0.6rem;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.boton-principal {
-  background: #114b5f;
-  color: #f5fbfc;
-  box-shadow: 0 8px 18px rgba(17, 75, 95, 0.16);
-}
-
-.boton-principal:hover {
-  background: #0d3c4c;
-  transform: translateY(-1px);
-}
-
-.boton-secundario {
-  background: #ffffff;
-  color: #114b5f;
-  border-color: #114b5f;
-}
-
-.boton-secundario:hover {
-  background: #f1f7f9;
-  color: #0d3c4c;
-  border-color: #0d3c4c;
-  transform: translateY(-1px);
 }
 
 @media (max-width: 1180px) {

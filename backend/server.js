@@ -34,6 +34,10 @@ function normalizarRolTexto(valor) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+function esRolComercial(rol) {
+  return normalizarRolTexto(rol) === 'comercial'
+}
+
 function aCentimos(valor) {
   return Math.round(Number(valor || 0) * 100)
 }
@@ -949,6 +953,120 @@ app.get('/api/clientes/comercial/:usuarioId', async (req, res) => {
   }
 })
 
+app.get('/api/ventas/gestor/comerciales', async (_req, res) => {
+  try {
+    const [usuarios] = await pool.query(
+      `
+        SELECT
+          u.id,
+          u.nombre_completo,
+          u.correo,
+          r.nombre AS rol
+        FROM usuarios u
+        LEFT JOIN roles_usuarios r ON r.id = u.rol_id
+        ORDER BY u.nombre_completo ASC
+      `
+    )
+
+    const comerciales = usuarios
+      .filter((usuario) => esRolComercial(usuario.rol))
+      .map((usuario) => ({
+        id: usuario.id,
+        nombre_completo: usuario.nombre_completo,
+        correo: usuario.correo,
+      }))
+
+    return res.json({
+      ok: true,
+      comerciales,
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudieron cargar los comerciales.')
+  }
+})
+
+app.get('/api/ventas/gestor/comercial/:usuarioId', async (req, res) => {
+  const usuarioId = Number(req.params.usuarioId)
+
+  if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'El usuario indicado no es valido.',
+    })
+  }
+
+  try {
+    const [usuarios] = await pool.query(
+      `
+        SELECT
+          u.id,
+          u.nombre_completo,
+          r.nombre AS rol
+        FROM usuarios u
+        LEFT JOIN roles_usuarios r ON r.id = u.rol_id
+        WHERE u.id = ?
+        LIMIT 1
+      `,
+      [usuarioId]
+    )
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'El usuario indicado no existe.',
+      })
+    }
+
+    if (!esRolComercial(usuarios[0].rol)) {
+      return res.status(403).json({
+        ok: false,
+        mensaje: 'El usuario indicado no tiene rol comercial.',
+      })
+    }
+
+    const [resumenFilas] = await pool.query(
+      `
+        SELECT
+          COUNT(*) AS total_ventas,
+          COALESCE(SUM(v.total_venta), 0) AS total_venta,
+          MAX(v.fecha_venta) AS ultima_venta
+        FROM ventas v
+        WHERE v.id_comercial = ?
+      `,
+      [usuarioId]
+    )
+
+    const [ventas] = await pool.query(
+      `
+        SELECT
+          v.id,
+          v.fecha_venta,
+          v.subtotal_base,
+          v.total_venta,
+          c.nombre AS cliente
+        FROM ventas v
+        INNER JOIN clientes c ON c.id = v.id_cliente
+        WHERE v.id_comercial = ?
+        ORDER BY v.id DESC
+        LIMIT 50
+      `,
+      [usuarioId]
+    )
+
+    return res.json({
+      ok: true,
+      comercial: {
+        id: usuarios[0].id,
+        nombre_completo: usuarios[0].nombre_completo,
+      },
+      resumen: resumenFilas[0],
+      ventas,
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudieron cargar las ventas del comercial.')
+  }
+})
+
 app.get('/api/ventas/comercial/:usuarioId/datos', async (req, res) => {
   const usuarioId = Number(req.params.usuarioId)
 
@@ -981,7 +1099,7 @@ app.get('/api/ventas/comercial/:usuarioId/datos', async (req, res) => {
       })
     }
 
-    if (normalizarRolTexto(usuarios[0].rol) !== 'comercial') {
+    if (!esRolComercial(usuarios[0].rol)) {
       return res.status(403).json({
         ok: false,
         mensaje: 'Solo los usuarios comerciales pueden registrar ventas.',
@@ -1140,7 +1258,7 @@ app.post('/api/ventas/comercial/:usuarioId', async (req, res) => {
       return
     }
 
-    if (normalizarRolTexto(usuarios[0].rol) !== 'comercial') {
+    if (!esRolComercial(usuarios[0].rol)) {
       await rollbackYResponder(403, 'Solo los usuarios comerciales pueden registrar ventas.')
       return
     }

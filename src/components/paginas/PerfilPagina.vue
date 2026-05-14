@@ -1,15 +1,10 @@
 <template>
   <div class="contenedor-pagina">
     <section class="rejilla-perfil">
-      <article class="panel panel-destacado">
+      <article class="panel">
         <div class="cabecera-perfil">
-          <div class="avatar-perfil">
-            {{ iniciales }}
-          </div>
-          <div>
-            <p class="eyebrow">Perfil</p>
-            <h3>{{ usuario.nombre_completo }}</h3>
-          </div>
+          <h3>Tu perfil</h3>
+          <p>Informacion basica de tu cuenta.</p>
         </div>
 
         <dl class="datos-perfil">
@@ -36,9 +31,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
-const props = defineProps({
+defineProps({
   usuario: {
     type: Object,
     required: true,
@@ -46,15 +39,6 @@ const props = defineProps({
 })
 
 defineEmits(['cerrar-sesion'])
-
-const iniciales = computed(() =>
-  (props.usuario.nombre_completo || '')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0]?.toUpperCase() || '')
-    .join('') || 'U'
-)
 </script>
 
 <style scoped>
@@ -64,65 +48,42 @@ const iniciales = computed(() =>
 
 .rejilla-perfil {
   display: grid;
-  grid-template-columns: minmax(320px, 680px);
+  grid-template-columns: minmax(320px, 620px);
 }
 
 .panel {
   background: #ffffff;
-  border: 1px solid #d4e3e8;
-  border-radius: 1rem;
-  padding: 1.2rem;
-}
-
-.panel-destacado {
-  background:
-    radial-gradient(circle at top right, rgba(17, 75, 95, 0.09), transparent 32%),
-    #ffffff;
+  border: 1px solid #d9dee3;
+  border-radius: 0.9rem;
+  padding: 1.1rem;
 }
 
 .cabecera-perfil {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.avatar-perfil {
-  width: 68px;
-  height: 68px;
-  border-radius: 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #114b5f;
-  color: #f5fbfc;
-  font-size: 1.2rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6a7b81;
+  display: grid;
+  gap: 0.25rem;
 }
 
 .cabecera-perfil h3 {
-  margin: 0.3rem 0 0;
-  color: #114b5f;
+  margin: 0;
+  color: #1f2d3d;
+  font-size: 1.25rem;
 }
 
+.cabecera-perfil p {
+  margin: 0;
+  color: #5b6978;
+  font-size: 0.94rem;
+}
 
 .datos-perfil {
   display: grid;
-  gap: 0.9rem;
-  margin: 1.3rem 0 0;
+  gap: 0.8rem;
+  margin: 1rem 0 0;
 }
 
 .datos-perfil div {
-  padding: 0.9rem 0;
-  border-bottom: 1px solid #e2ecef;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e4eaef;
 }
 
 .datos-perfil div:last-child {
@@ -130,42 +91,35 @@ const iniciales = computed(() =>
 }
 
 .datos-perfil dt {
-  color: #6a7b81;
+  color: #617181;
   font-size: 0.82rem;
-  margin-bottom: 0.28rem;
+  margin-bottom: 0.26rem;
 }
 
 .datos-perfil dd {
   margin: 0;
-  color: #24343a;
+  color: #1f2d3d;
   font-weight: 600;
 }
 
 .boton-cerrar-sesion {
   margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.65rem;
-  border: 1px solid #114b5f;
-  background: #114b5f;
+  padding: 0.7rem 0.95rem;
+  border-radius: 0.55rem;
+  border: 1px solid #2d5f77;
+  background: #2d5f77;
   color: #f5fbfc;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .boton-cerrar-sesion:hover {
-  background: #0d3c4c;
-  transform: translateY(-1px);
+  background: #234b5e;
 }
 
 @media (max-width: 760px) {
   .rejilla-perfil {
     grid-template-columns: 1fr;
-  }
-
-  .cabecera-perfil {
-    align-items: flex-start;
   }
 }
 </style>

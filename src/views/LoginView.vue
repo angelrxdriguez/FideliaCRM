@@ -2,11 +2,8 @@
   <div class="pagina-login">
     <section class="panel-login">
       <div class="cabecera-login">
-        <span class="logo-login">FDB</span>
-        <div>
-          <p class="eyebrow">Acceso restringido</p>
-          <h1>Entrar en Fidelia CRM</h1>
-        </div>
+        <h1>Entrar en Fidelia CRM</h1>
+        <p>Introduce tu correo y contrasena para continuar.</p>
       </div>
 
       <article v-if="error" class="alerta alerta-danger">
@@ -67,7 +64,7 @@ async function iniciarSesion() {
     const usuario = payload.usuario
     const rol = normalizarRol(usuario?.rol)
 
-    if (rol !== 'administrador' && rol !== 'comercial') {
+    if (!esRolAutorizado(rol)) {
       error.value = 'Tu usuario no tiene un rol autorizado para acceder al sistema.'
       return
     }
@@ -79,6 +76,10 @@ async function iniciarSesion() {
     cargando.value = false
   }
 }
+
+function esRolAutorizado(rol) {
+  return rol === 'administrador' || rol === 'comercial' || rol === 'gestor_comercial'
+}
 </script>
 
 <style scoped>
@@ -87,82 +88,73 @@ async function iniciarSesion() {
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background:
-    radial-gradient(circle at top left, rgba(17, 75, 95, 0.14), transparent 28%),
-    linear-gradient(180deg, #edf5f7 0%, #e5eff2 100%);
+  background: #f3f5f7;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .panel-login {
-  width: min(460px, 100%);
+  width: min(420px, 100%);
   background: #ffffff;
-  border: 1px solid #d4e3e8;
-  border-radius: 1.2rem;
-  padding: 1.4rem;
-  box-shadow: 0 18px 45px rgba(17, 75, 95, 0.12);
+  border: 1px solid #d9dee3;
+  border-radius: 0.9rem;
+  padding: 1.3rem;
+  box-shadow: 0 8px 24px rgba(25, 39, 52, 0.08);
 }
 
 .cabecera-login {
-  display: flex;
-  gap: 0.9rem;
-  align-items: flex-start;
+  display: grid;
+  gap: 0.3rem;
   margin-bottom: 1.2rem;
 }
 
-.logo-login {
-  width: 48px;
-  height: 48px;
-  border-radius: 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #114b5f;
-  color: #f5fbfc;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6c7a80;
-}
-
 .cabecera-login h1 {
-  margin: 0.2rem 0 0;
-  color: #114b5f;
-  font-size: 1.8rem;
+  margin: 0;
+  color: #1f2d3d;
+  font-size: 1.5rem;
 }
 
+.cabecera-login p {
+  margin: 0;
+  color: #5b6978;
+  font-size: 0.95rem;
+}
 
 .formulario-login {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.85rem;
 }
 
 .formulario-login label {
   display: grid;
-  gap: 0.35rem;
-  color: #32464d;
+  gap: 0.32rem;
+  color: #2f3c4a;
+  font-size: 0.95rem;
+}
+
+.formulario-login input {
+  border: 1px solid #c9d1d8;
+  border-radius: 0.55rem;
+  padding: 0.62rem 0.7rem;
+  font-size: 0.95rem;
+}
+
+.formulario-login input:focus {
+  outline: 2px solid #cddfeb;
+  outline-offset: 1px;
 }
 
 .boton-principal {
-  padding: 0.78rem 1rem;
-  border-radius: 0.65rem;
+  padding: 0.72rem 1rem;
+  border-radius: 0.55rem;
   border: 1px solid transparent;
-  background: #114b5f;
+  background: #2d5f77;
   color: #f5fbfc;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .boton-principal:hover {
-  background: #0d3c4c;
-  transform: translateY(-1px);
+  background: #234b5e;
 }
 
 .boton-principal:disabled {

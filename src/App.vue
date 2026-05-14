@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import ComercialCRMView from './views/ComercialCRMView.vue'
 import FideliaCRMView from './views/FideliaCRMView.vue'
+import GestorComercialCRMView from './views/GestorComercialCRMView.vue'
 import LoginView from './views/LoginView.vue'
 
 const claveSesion = 'fidelia_usuario_autenticado'
@@ -22,10 +23,20 @@ function leerSesion() {
 const usuarioAutenticado = ref(leerSesion())
 
 const rolUsuario = computed(() => normalizarRol(usuarioAutenticado.value?.rol))
-const rolValido = computed(() => rolUsuario.value === 'administrador' || rolUsuario.value === 'comercial')
+const rolValido = computed(
+  () =>
+    rolUsuario.value === 'administrador' ||
+    rolUsuario.value === 'comercial' ||
+    rolUsuario.value === 'gestor_comercial'
+)
 const haySesion = computed(() => Boolean(usuarioAutenticado.value) && rolValido.value)
 const esComercial = computed(() => rolUsuario.value === 'comercial')
-const vistaAutenticada = computed(() => (esComercial.value ? ComercialCRMView : FideliaCRMView))
+const esGestorComercial = computed(() => rolUsuario.value === 'gestor_comercial')
+const vistaAutenticada = computed(() => {
+  if (esGestorComercial.value) return GestorComercialCRMView
+  if (esComercial.value) return ComercialCRMView
+  return FideliaCRMView
+})
 
 function manejarAutenticacion(usuario) {
   usuarioAutenticado.value = usuario
