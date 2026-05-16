@@ -17,6 +17,7 @@
           <span>{{ pagina.nombre }}</span>
         </button>
       </nav>
+
     </aside>
 
     <main class="contenido-principal">
@@ -38,7 +39,7 @@
 
       <component
         :is="componenteActivo"
-        :usuario="usuario"
+        v-bind="paginaActiva === 'perfil' ? { usuario } : {}"
         @cerrar-sesion="$emit('cerrar-sesion')"
       />
     </main>
@@ -47,11 +48,17 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import ClientesComercialPagina from '../components/paginas/ClientesComercialPagina.vue'
-import PerfilPagina from '../components/paginas/PerfilPagina.vue'
-import VentasComercialPagina from '../components/paginas/VentasComercialPagina.vue'
+import ArticulosPagina from '../components/paginas/Articulos.vue'
+import ClientesPagina from '../components/paginas/Clientes.vue'
+import EmpresaPagina from '../components/paginas/Empresa.vue'
+import FamiliasPagina from '../components/paginas/Familias.vue'
+import PerfilPagina from '../components/paginas/Perfil.vue'
+import RolesUsuariosPagina from '../components/paginas/RolesUsuarios.vue'
+import TarifasPagina from '../components/paginas/Tarifas.vue'
+import TiposFamiliaPagina from '../components/paginas/TiposFamilia.vue'
+import UsuariosPagina from '../components/paginas/Usuarios.vue'
 
-const props = defineProps({
+defineProps({
   usuario: {
     type: Object,
     required: true,
@@ -62,29 +69,60 @@ defineEmits(['cerrar-sesion'])
 
 const paginas = [
   {
-    id: 'ventas',
-    nombre: 'Ventas',
-    componente: VentasComercialPagina,
-  },
-  {
-    id: 'mis-clientes',
-    nombre: 'Mis clientes',
-    componente: ClientesComercialPagina,
-  },
-  {
     id: 'perfil',
     nombre: 'Perfil',
     componente: PerfilPagina,
   },
+  {
+    id: 'configuracion-empresa',
+    nombre: 'Configuracion empresa',
+    componente: EmpresaPagina,
+  },
+  {
+    id: 'tarifas',
+    nombre: 'Tarifas',
+    componente: TarifasPagina,
+  },
+  {
+    id: 'clientes',
+    nombre: 'Clientes',
+    componente: ClientesPagina,
+  },
+  {
+    id: 'roles-usuarios',
+    nombre: 'Roles',
+    componente: RolesUsuariosPagina,
+  },
+  {
+    id: 'usuarios',
+    nombre: 'Usuarios',
+    componente: UsuariosPagina,
+  },
+  {
+    id: 'tipos-familia',
+    nombre: 'Tipos de familia',
+    componente: TiposFamiliaPagina,
+  },
+  {
+    id: 'familias',
+    nombre: 'Familias',
+    componente: FamiliasPagina,
+  },
+  {
+    id: 'articulos',
+    nombre: 'Articulos',
+    componente: ArticulosPagina,
+  },
 ]
 
-const paginaActiva = ref('ventas')
+const paginaActiva = ref('usuarios')
 const paginasMenu = computed(() => paginas.filter((pagina) => pagina.id !== 'perfil'))
+
 const paginaActual = computed(
   () => paginas.find((pagina) => pagina.id === paginaActiva.value) || paginas[0]
 )
+
 const componenteActivo = computed(() => paginaActual.value.componente)
-const usuario = computed(() => props.usuario)
 </script>
 
 <style scoped>
@@ -114,6 +152,10 @@ const usuario = computed(() => props.usuario)
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.logo-crm {
+  display: block;
 }
 
 .logo-crm h1 {

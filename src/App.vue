@@ -1,9 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
-import ComercialCRMView from './views/ComercialCRMView.vue'
-import FideliaCRMView from './views/FideliaCRMView.vue'
-import GestorComercialCRMView from './views/GestorComercialCRMView.vue'
-import LoginView from './views/LoginView.vue'
+import ComercialCRMView from './views/Comercial.vue'
+import FideliaCRMView from './views/Administrador.vue'
+import GestorComercialCRMView from './views/GestorComercial.vue'
+import LoginView from './views/Login.vue'
 
 const claveSesion = 'fidelia_usuario_autenticado'
 

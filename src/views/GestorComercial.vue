@@ -17,7 +17,6 @@
           <span>{{ pagina.nombre }}</span>
         </button>
       </nav>
-
     </aside>
 
     <main class="contenido-principal">
@@ -39,7 +38,7 @@
 
       <component
         :is="componenteActivo"
-        v-bind="paginaActiva === 'perfil' ? { usuario } : {}"
+        :usuario="usuario"
         @cerrar-sesion="$emit('cerrar-sesion')"
       />
     </main>
@@ -48,17 +47,10 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import ArticulosPagina from '../components/paginas/ArticulosPagina.vue'
-import ClientesPagina from '../components/paginas/ClientesPagina.vue'
-import EmpresaPagina from '../components/paginas/EmpresaPagina.vue'
-import FamiliasPagina from '../components/paginas/FamiliasPagina.vue'
-import PerfilPagina from '../components/paginas/PerfilPagina.vue'
-import RolesUsuariosPagina from '../components/paginas/RolesUsuariosPagina.vue'
-import TarifasPagina from '../components/paginas/TarifasPagina.vue'
-import TiposFamiliaPagina from '../components/paginas/TiposFamiliaPagina.vue'
-import UsuariosPagina from '../components/paginas/UsuariosPagina.vue'
+import GestorVentasComercialesPagina from '../components/paginas/GestorVentas.vue'
+import PerfilPagina from '../components/paginas/Perfil.vue'
 
-defineProps({
+const props = defineProps({
   usuario: {
     type: Object,
     required: true,
@@ -69,60 +61,24 @@ defineEmits(['cerrar-sesion'])
 
 const paginas = [
   {
+    id: 'ventas-comerciales',
+    nombre: 'Ventas por comercial',
+    componente: GestorVentasComercialesPagina,
+  },
+  {
     id: 'perfil',
     nombre: 'Perfil',
     componente: PerfilPagina,
   },
-  {
-    id: 'configuracion-empresa',
-    nombre: 'Configuracion empresa',
-    componente: EmpresaPagina,
-  },
-  {
-    id: 'tarifas',
-    nombre: 'Tarifas',
-    componente: TarifasPagina,
-  },
-  {
-    id: 'clientes',
-    nombre: 'Clientes',
-    componente: ClientesPagina,
-  },
-  {
-    id: 'roles-usuarios',
-    nombre: 'Roles',
-    componente: RolesUsuariosPagina,
-  },
-  {
-    id: 'usuarios',
-    nombre: 'Usuarios',
-    componente: UsuariosPagina,
-  },
-  {
-    id: 'tipos-familia',
-    nombre: 'Tipos de familia',
-    componente: TiposFamiliaPagina,
-  },
-  {
-    id: 'familias',
-    nombre: 'Familias',
-    componente: FamiliasPagina,
-  },
-  {
-    id: 'articulos',
-    nombre: 'Articulos',
-    componente: ArticulosPagina,
-  },
 ]
 
-const paginaActiva = ref('usuarios')
+const paginaActiva = ref('ventas-comerciales')
 const paginasMenu = computed(() => paginas.filter((pagina) => pagina.id !== 'perfil'))
-
 const paginaActual = computed(
   () => paginas.find((pagina) => pagina.id === paginaActiva.value) || paginas[0]
 )
-
 const componenteActivo = computed(() => paginaActual.value.componente)
+const usuario = computed(() => props.usuario)
 </script>
 
 <style scoped>
@@ -152,10 +108,6 @@ const componenteActivo = computed(() => paginaActual.value.componente)
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.logo-crm {
-  display: block;
 }
 
 .logo-crm h1 {
