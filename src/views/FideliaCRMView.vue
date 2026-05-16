@@ -52,7 +52,6 @@ import ArticulosPagina from '../components/paginas/ArticulosPagina.vue'
 import ClientesPagina from '../components/paginas/ClientesPagina.vue'
 import EmpresaPagina from '../components/paginas/EmpresaPagina.vue'
 import FamiliasPagina from '../components/paginas/FamiliasPagina.vue'
-import InicioPagina from '../components/paginas/InicioPagina.vue'
 import PerfilPagina from '../components/paginas/PerfilPagina.vue'
 import RolesUsuariosPagina from '../components/paginas/RolesUsuariosPagina.vue'
 import TarifasPagina from '../components/paginas/TarifasPagina.vue'
@@ -69,11 +68,6 @@ defineProps({
 defineEmits(['cerrar-sesion'])
 
 const paginas = [
-  {
-    id: 'inicio',
-    nombre: 'Inicio',
-    componente: InicioPagina,
-  },
   {
     id: 'perfil',
     nombre: 'Perfil',
@@ -121,7 +115,7 @@ const paginas = [
   },
 ]
 
-const paginaActiva = ref('inicio')
+const paginaActiva = ref('usuarios')
 const paginasMenu = computed(() => paginas.filter((pagina) => pagina.id !== 'perfil'))
 
 const paginaActual = computed(
