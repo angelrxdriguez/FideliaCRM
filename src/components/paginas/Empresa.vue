@@ -505,7 +505,6 @@ watch(
 }
 
 .bloque-imagen-empresa {
-  border: 1px dashed #b8ccd3;
   border-radius: 0.8rem;
   padding: 0.85rem;
   display: grid;

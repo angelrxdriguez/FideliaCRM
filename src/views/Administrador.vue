@@ -2,7 +2,7 @@
   <div class="pagina-crm">
     <aside class="menu-izquierdo">
       <div class="logo-crm">
-        <h1>Fidelia CRM</h1>
+        <MarcaEmpresa />
       </div>
 
       <nav class="navegacion-menu">
@@ -50,6 +50,7 @@
 import { computed, ref } from 'vue'
 import ArticulosPagina from '../components/paginas/Articulos.vue'
 import ClientesPagina from '../components/paginas/Clientes.vue'
+import MarcaEmpresa from '../components/comunes/MarcaEmpresa.vue'
 import EmpresaPagina from '../components/paginas/Empresa.vue'
 import FamiliasPagina from '../components/paginas/Familias.vue'
 import PerfilPagina from '../components/paginas/Perfil.vue'
@@ -156,10 +157,6 @@ const componenteActivo = computed(() => paginaActual.value.componente)
 
 .logo-crm {
   display: block;
-}
-
-.logo-crm h1 {
-  margin: 0;
 }
 
 .navegacion-menu {

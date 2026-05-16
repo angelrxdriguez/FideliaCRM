@@ -2,7 +2,7 @@
   <div class="pagina-crm">
     <aside class="menu-izquierdo">
       <div class="logo-crm">
-        <h1>Fidelia CRM</h1>
+        <MarcaEmpresa />
       </div>
 
       <nav class="navegacion-menu">
@@ -47,6 +47,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import MarcaEmpresa from '../components/comunes/MarcaEmpresa.vue'
 import ClientesComercialPagina from '../components/paginas/ClientesComercial.vue'
 import PerfilPagina from '../components/paginas/Perfil.vue'
 import VentasComercialPagina from '../components/paginas/VentasComercial.vue'
@@ -114,10 +115,6 @@ const usuario = computed(() => props.usuario)
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.logo-crm h1 {
-  margin: 0;
 }
 
 .navegacion-menu {
