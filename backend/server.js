@@ -1,6 +1,9 @@
 import bcrypt from 'bcryptjs'
 import cors from 'cors'
 import express from 'express'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { configuracionConexion, pool } from './db/conexion.js'
 
 const app = express()
@@ -8,7 +11,18 @@ const puerto = Number(process.env.PUERTO_API || 3101)
 const tablasEsperadas = ['articulos', 'familias', 'tipo_familia', 'roles_usuarios', 'usuarios', 'tarifas', 'clientes']
 
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '8mb' }))
+
+const directorioActual = path.dirname(fileURLToPath(import.meta.url))
+const directorioImagenesEmpresa = path.resolve(directorioActual, '../src/assets/img')
+const nombreBaseImagenEmpresa = 'empresa'
+const mimeAExtension = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'image/svg+xml': '.svg',
+}
 
 function enviarError(res, error, mensajeBase) {
   if (error.code === 'ER_DUP_ENTRY') {
@@ -536,6 +550,74 @@ function escaparIdentificador(identificador) {
   return `\`${String(identificador || '').replace(/`/g, '')}\``
 }
 
+async function buscarImagenEmpresa() {
+  await fs.mkdir(directorioImagenesEmpresa, { recursive: true })
+  const entradas = await fs.readdir(directorioImagenesEmpresa, { withFileTypes: true })
+  let nombreMasReciente = null
+  let rutaMasReciente = null
+  let fechaMasReciente = 0
+
+  for (const entrada of entradas) {
+    if (!entrada.isFile()) {
+      continue
+    }
+
+    const extension = path.extname(entrada.name).toLowerCase()
+    const nombreSinExtension = path.parse(entrada.name).name.toLowerCase()
+
+    if (nombreSinExtension !== nombreBaseImagenEmpresa || !extension) {
+      continue
+    }
+
+    const rutaArchivo = path.join(directorioImagenesEmpresa, entrada.name)
+    const estadisticas = await fs.stat(rutaArchivo)
+    const fechaArchivo = estadisticas.mtimeMs || 0
+
+    if (fechaArchivo >= fechaMasReciente) {
+      fechaMasReciente = fechaArchivo
+      nombreMasReciente = entrada.name
+      rutaMasReciente = rutaArchivo
+    }
+  }
+
+  if (!nombreMasReciente || !rutaMasReciente) {
+    return null
+  }
+
+  return {
+    nombreArchivo: nombreMasReciente,
+    rutaAbsoluta: rutaMasReciente,
+    actualizadoMs: fechaMasReciente,
+  }
+}
+
+async function limpiarImagenesEmpresa() {
+  await fs.mkdir(directorioImagenesEmpresa, { recursive: true })
+  const entradas = await fs.readdir(directorioImagenesEmpresa, { withFileTypes: true })
+
+  for (const entrada of entradas) {
+    if (!entrada.isFile()) {
+      continue
+    }
+
+    const nombre = path.parse(entrada.name).name.toLowerCase()
+    if (nombre !== nombreBaseImagenEmpresa) {
+      continue
+    }
+
+    await fs.unlink(path.join(directorioImagenesEmpresa, entrada.name))
+  }
+}
+
+function resolverExtensionImagen(mimeType = '', nombreArchivo = '') {
+  const extensionPorNombre = path.extname(String(nombreArchivo || '')).toLowerCase()
+  if (extensionPorNombre) {
+    return extensionPorNombre
+  }
+
+  return mimeAExtension[String(mimeType || '').toLowerCase()] || '.png'
+}
+
 async function obtenerDefinicionTablaEmpresa() {
   const placeholders = tablasEmpresaCandidatas.map(() => '?').join(', ')
 
@@ -746,6 +828,89 @@ app.put('/api/empresa-parametros', async (req, res) => {
     })
   } catch (error) {
     return enviarError(res, error, 'No se pudieron guardar los parametros de empresa.')
+  }
+})
+
+app.get('/api/empresa-imagen', async (_req, res) => {
+  try {
+    const imagen = await buscarImagenEmpresa()
+
+    if (!imagen) {
+      return res.json({
+        ok: true,
+        imagen: {
+          existe: false,
+          nombre: null,
+          url: null,
+        },
+      })
+    }
+
+    return res.json({
+      ok: true,
+      imagen: {
+        existe: true,
+        nombre: imagen.nombreArchivo,
+        url: `/api/empresa-imagen/archivo?v=${Math.trunc(imagen.actualizadoMs)}`,
+      },
+    })
+  } catch (error) {
+    return enviarError(res, error, 'error al cargar la imagen')
+  }
+})
+
+app.get('/api/empresa-imagen/archivo', async (_req, res) => {
+  try {
+    const imagen = await buscarImagenEmpresa()
+
+    if (!imagen) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: 'No hay imagen de empresa cargada.',
+      })
+    }
+
+    res.setHeader('Cache-Control', 'no-store')
+    return res.sendFile(imagen.rutaAbsoluta)
+  } catch (error) {
+    return enviarError(res, error, 'No se pudo cargar el archivo de la imagen de empresa.')
+  }
+})
+
+app.put('/api/empresa-imagen', async (req, res) => {
+  const contenidoBase64 = String(req.body?.contenido_base64 || '').trim()
+  const mimeType = String(req.body?.mime_type || '').trim()
+  const nombreArchivoOriginal = String(req.body?.nombre_archivo || '').trim()
+  const extension = resolverExtensionImagen(mimeType, nombreArchivoOriginal)
+
+  if (!contenidoBase64) {
+    return res.status(400).json({
+      ok: false,
+      mensaje: 'Debes enviar una imagen.',
+    })
+  }
+
+  const buffer = Buffer.from(contenidoBase64, 'base64')
+
+  try {
+    await limpiarImagenesEmpresa()
+
+    const nombreFinal = `${nombreBaseImagenEmpresa}${extension}`
+    const rutaDestino = path.join(directorioImagenesEmpresa, nombreFinal)
+    await fs.writeFile(rutaDestino, buffer)
+    const estadisticas = await fs.stat(rutaDestino)
+
+    return res.json({
+      ok: true,
+      mensaje: 'Imagen de empresa actualizada correctamente.',
+      imagen: {
+        existe: true,
+        nombre: nombreFinal,
+        url: `/api/empresa-imagen/archivo?v=${Math.trunc(estadisticas.mtimeMs || Date.now())}`,
+      },
+    })
+  } catch (error) {
+    return enviarError(res, error, 'No se pudo guardar la imagen de empresa.')
   }
 })
 

@@ -19,6 +19,35 @@
       <div v-if="cargando" class="estado-carga">Cargando parametros de empresa...</div>
 
       <form v-else class="formulario" @submit.prevent="guardarParametros">
+        <section class="bloque-imagen-empresa">
+          <div class="cabecera-imagen-empresa">
+            <div>
+              <h4>Foto de empresa</h4>
+              <p>Solo se guarda un archivo con nombre "empresa" dentro de `src/assets/img`.</p>
+            </div>
+            <button
+              type="button"
+              class="boton-secundario"
+              :disabled="subiendoImagen"
+              @click="abrirSelectorImagenEmpresa"
+            >
+              {{ subiendoImagen ? 'Subiendo...' : imagenEmpresaUrl ? 'Modificar foto' : 'Cargar foto' }}
+            </button>
+            <input
+              ref="inputImagenEmpresa"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+              class="input-oculto"
+              @change="manejarCambioImagen"
+            />
+          </div>
+
+          <div class="contenido-imagen-empresa">
+            <img v-if="imagenEmpresaUrl" :src="imagenEmpresaUrl" :alt="imagenEmpresaNombre || 'Foto de empresa'" />
+            <p v-else class="estado-imagen-vacia">No hay foto cargada.</p>
+          </div>
+        </section>
+
         <div class="formulario-rejilla">
           <label>
             Nombre comercial
@@ -119,6 +148,10 @@ const alertaDanger = ref('')
 const parametrosIniciales = ref(null)
 const cargandoCodigoPostal = ref(false)
 const ciudadesSugeridas = ref([])
+const subiendoImagen = ref(false)
+const imagenEmpresaUrl = ref('')
+const imagenEmpresaNombre = ref('')
+const inputImagenEmpresa = ref(null)
 let temporizadorCodigoPostal = null
 
 const formulario = reactive({
@@ -160,6 +193,91 @@ function reiniciarFormulario() {
   limpiarAlertas()
   aplicarParametros(parametrosIniciales.value || {})
   ciudadesSugeridas.value = []
+}
+
+function abrirSelectorImagenEmpresa() {
+  inputImagenEmpresa.value?.click()
+}
+
+function archivoABase64(archivo) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader()
+
+    lector.onload = () => {
+      const resultado = String(lector.result || '')
+      const partes = resultado.split(',')
+      const contenido = partes.length > 1 ? partes[1] : ''
+
+      if (!contenido) {
+        reject(new Error('No se pudo procesar la imagen seleccionada.'))
+        return
+      }
+
+      resolve(contenido)
+    }
+
+    lector.onerror = () => {
+      reject(new Error('No se pudo leer la imagen seleccionada.'))
+    }
+
+    lector.readAsDataURL(archivo)
+  })
+}
+
+async function cargarImagenEmpresa() {
+  try {
+    const payload = await obtener('/api/empresa-imagen', 'No se pudo cargar la imagen de empresa.')
+    const imagen = payload.imagen || {}
+
+    if (!imagen.existe) {
+      imagenEmpresaUrl.value = ''
+      imagenEmpresaNombre.value = ''
+      return
+    }
+
+    imagenEmpresaUrl.value = imagen.url || ''
+    imagenEmpresaNombre.value = imagen.nombre || ''
+  } catch (error) {
+    imagenEmpresaUrl.value = ''
+    imagenEmpresaNombre.value = ''
+    alertaDanger.value = error.message
+  }
+}
+
+async function manejarCambioImagen(evento) {
+  const input = evento.target
+  const archivo = input?.files?.[0]
+
+  if (!archivo) {
+    return
+  }
+
+  limpiarAlertas()
+
+  subiendoImagen.value = true
+
+  try {
+    const contenidoBase64 = await archivoABase64(archivo)
+    const payload = await actualizar(
+      '/api/empresa-imagen',
+      {
+        nombre_archivo: archivo.name,
+        mime_type: archivo.type,
+        contenido_base64: contenidoBase64,
+      },
+      'No se pudo guardar la imagen de empresa.'
+    )
+
+    const imagen = payload.imagen || {}
+    imagenEmpresaUrl.value = imagen.url || ''
+    imagenEmpresaNombre.value = imagen.nombre || ''
+    alertaSuccess.value = 'Imagen de empresa actualizada correctamente.'
+  } catch (error) {
+    alertaDanger.value = error.message
+  } finally {
+    subiendoImagen.value = false
+    input.value = ''
+  }
 }
 
 async function autocompletarPorCodigoPostal() {
@@ -227,6 +345,7 @@ async function guardarParametros() {
 
 onMounted(() => {
   cargarParametros()
+  cargarImagenEmpresa()
 })
 
 watch(
@@ -383,6 +502,60 @@ watch(
 
 .estado-carga {
   color: #607077;
+}
+
+.bloque-imagen-empresa {
+  border: 1px dashed #b8ccd3;
+  border-radius: 0.8rem;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.cabecera-imagen-empresa {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cabecera-imagen-empresa h4 {
+  margin: 0;
+  color: #114b5f;
+}
+
+.cabecera-imagen-empresa p {
+  margin: 0.25rem 0 0;
+  color: #607077;
+  font-size: 0.92rem;
+}
+
+.input-oculto {
+  display: none;
+}
+
+.contenido-imagen-empresa {
+  background: #f7fbfc;
+  border: 1px solid #d4e3e8;
+  border-radius: 0.75rem;
+  min-height: 180px;
+  padding: 0.65rem;
+  display: grid;
+  place-items: center;
+}
+
+.contenido-imagen-empresa img {
+  max-width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: 0.55rem;
+}
+
+.estado-imagen-vacia {
+  margin: 0;
+  color: #607077;
+  text-align: center;
 }
 
 @media (max-width: 820px) {
